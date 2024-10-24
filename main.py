@@ -1,3 +1,4 @@
+from collections import deque
 import yaml
 import random
 from symboltable import derivedtable
@@ -11,46 +12,83 @@ def parse_grammar_yml(file_name):
         data = yaml.safe_load(file)
     return data
 
+# 分析syntax中的终结符和非终结符
 def analyze_syntax(syntax_rules):
     nonterminals = set()
     terminals = set()
     attributes = {}
 
+    # 生成一个符号到规则的映射表
+    rule_map = {}
+
+    left_symbols = set()  # 左侧符号（非终结符）
+    right_symbols = set()  # 右侧符号
+
     for rule in syntax_rules:
         # 获取规则左侧的非终结符
         left_side = rule['rule'].split("->")[0].strip()
-        nonterminals.add(left_side)
+        left_symbols.add(left_side)
 
         # 获取规则右侧的符号，可能包含终结符和非终结符
         right_side = rule['rule'].split("->")[1].strip().split()
+        right_symbols.update(right_side)  # 记录右侧符号
 
         for symbol in right_side:
-            # 如果符号不是非终结符，则视为终结符
-            if symbol not in nonterminals:
+            if symbol not in left_symbols:
                 terminals.add(symbol)
 
-        # 处理actions部分，提取属性
-        if 'actions' in rule:
-            for action in rule['actions']:
-                parts = action.split(":=")
-                left_part = parts[0].strip()
-                if "." in left_part:
-                    symbol_name, attr = left_part.split(".")
-                    if symbol_name not in attributes:
-                        attributes[symbol_name] = []
-                    if attr not in attributes[symbol_name]:
-                        attributes[symbol_name].append(attr)
+        # 将规则添加到映射表
+        if left_side not in rule_map:
+            rule_map[left_side] = []
+        rule_map[left_side].append(right_side)
 
     # 确定终结符
-    terminals.difference_update(nonterminals)
-    
-    return nonterminals, terminals, attributes
+    terminals.difference_update(left_symbols)
+    nonterminals.update(left_symbols)
+
+    return nonterminals, terminals, rule_map, left_symbols, right_symbols
+
+# 使用BFS生成语法例子
+def generate_example_bfs(start_symbol, rule_map, nonterminals, terminals):
+    """
+    使用广度优先搜索（BFS）生成语法例子，随机选择规则进行派生。
+    """
+    queue = deque([start_symbol])  # 队列用于处理非终结符
+    result = []  # 存放最终结果
+
+    while queue:
+        current_symbol = queue.popleft()
+
+        if current_symbol in nonterminals:
+            # 随机选择适用规则进行展开
+            if current_symbol in rule_map:
+                chosen_rule = random.choice(rule_map[current_symbol])
+                queue.extend(chosen_rule)  # 将右侧符号加入队列
+        else:
+            # 如果是终结符，直接添加到结果
+            result.append(current_symbol)
+
+    return ' '.join(result)
+
+# 自动智能判断起点符号
+def get_start_symbol(left_symbols, right_symbols):
+    """
+    自动判断起点符号：选择出现在左侧但从未出现在右侧的符号。
+    """
+    # 起点符号应是没有在右侧出现的左侧符号
+    start_candidates = left_symbols - right_symbols
+
+    if start_candidates:
+        return next(iter(start_candidates))  # 返回任意一个候选符号
+    else:
+        raise ValueError("无法找到有效的起点符号，所有左侧符号都出现在右侧。")
 
 if __name__ == "__main__":
     # 解析grammar.yml
     grammar_file_address = "input/grammar.yml"
     grammar_content = parse_grammar_yml(grammar_file_address)
 
+    # 加载constants到派生表
     load_constants_into_derivedtable(grammar_content['constants'])
 
     # 加载attributes到符号表
@@ -60,13 +98,16 @@ if __name__ == "__main__":
     if 'tables' in grammar_content and grammar_content['tables']: 
         load_tables_into_symboltable(grammar_content['tables'])
 
-
+    # 获取syntax规则
     syntax_rules = grammar_content['syntax']
 
-    # 分析终结符、非终结符及其属性
-    nonterminals, terminals, attributes = analyze_syntax(syntax_rules)
+    # 分析终结符、非终结符及其属性，并生成规则映射表
+    nonterminals, terminals, rule_map, left_symbols, right_symbols = analyze_syntax(syntax_rules)
 
-    # 输出分析结果
-    print("非终结符 (Nonterminals):", nonterminals)
-    print("终结符 (Terminals):", terminals)
-    print("符号属性 (Attributes):", attributes)
+    # 自动智能判断起点符号
+    start_symbol = get_start_symbol(left_symbols, right_symbols)
+
+    # 从起点符号开始生成派生例子
+    generated_example = generate_example_bfs(start_symbol, rule_map, nonterminals, terminals)
+
+    print("生成的随机语法例子:", generated_example)

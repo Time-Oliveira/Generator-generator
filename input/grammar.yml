@@ -4,13 +4,18 @@ syntax:
       - F.dif := generator_difficult
       - S.dif := F.dif / 2
       - F.dif := F.dif / 2
-      - Attribute.type = Table.type = ref
   - rule: S -> Select A
     actions:
       - A.dif := S.dif
-  - rule: A -> Attribute
+  - rule: A -> Attribute1
     actions:
-      - Attribute.dif := A.dif
+      - Attribute1.dif := A.dif
+  - rule: A -> Attribute2
+    actions:
+      - Attribute2.dif := A.dif
+  - rule: A -> Attribute3
+    actions:
+      - Attribute3.dif := A.dif
   - rule: F -> From T
     actions:
       - I.dif := F.dif
