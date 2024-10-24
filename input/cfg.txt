@@ -1,0 +1,17 @@
+E → SF
+E → SFW
+S → Select A
+S → Select *
+F → From T
+T → (SF) As Table
+T → (SFW) As Table
+T → T joint T
+T → Table,
+A → A Attribute
+A → Attribute
+W → where
+W → where C Attribute operator Value
+W → Attribute operator Value
+C → C AND Attribute operator Value
+C → C OR Attribute operator Value
+C → Attribute operator Value

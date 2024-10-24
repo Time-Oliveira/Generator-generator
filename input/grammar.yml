@@ -1,0 +1,83 @@
+syntax:
+  - rule: E -> S F
+    actions:
+      - F.dif := generator_difficult
+      - S.dif := F.dif / 2
+      - F.dif := F.dif / 2
+      - Attribute.type = Table.type = ref
+  - rule: S -> Select A
+    actions:
+      - A.dif := S.dif
+  - rule: A -> Attribute
+    actions:
+      - Attribute.dif := A.dif
+  - rule: F -> From T
+    actions:
+      - I.dif := F.dif
+  - rule: T -> Table
+    actions:
+      - Table.dif := I.dif
+      - Table.type := rand(SymbolTable, Table.dif)
+      - Attribute.type := select(Attribute.type, Attribute.dif)
+      - Table.value := generate(Table.type, Table.dif)
+
+# 定义属性部分
+attributes:
+  - name: GPA
+    type: CustomFloat
+    params: [1, 1.0, 4.0]
+  - name: Major
+    type: CustomString
+    params: [20]
+  - name: Location
+    type: CustomString
+    params: [30]
+  - name: ID
+    type: CustomInt
+    params: [1000, 9999]
+  - name: Age
+    type: CustomInt
+    params: [18, 25]
+  - name: Name
+    type: CustomString
+    params: [10]
+  - name: Unit
+    type: RandomSelector
+    params: [1.0, 2.0, 3.0, 4.0]
+  - name: Classroom
+    type: CustomString
+    params: [5]
+
+# 定义表格部分
+tables:
+  - name: Course
+    attributes: [ID, Name, Unit, Classroom]
+  - name: Student
+    attributes: [ID, GPA, Age]
+  - name: School
+    attributes: [Major, Location]
+
+constants:
+  - generator_difficult: 10
+
+functions:
+  select:
+    params:
+      - name: Table.type
+      - name: Attribute.dif
+    implementation: |
+      def select(Table.type, Attribute.dif):
+
+  rand:
+    params:
+      - name: SymbolTable
+      - name: Table.dif
+    implementation: |
+      def rand(SymbolTable, Table.dif):
+
+  generate:
+    params:
+      - name: Table.type
+      - name: Table.dif
+    implementation: |
+      def generate(table_type, difficulty):
