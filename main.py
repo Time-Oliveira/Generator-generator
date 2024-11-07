@@ -12,78 +12,186 @@ def parse_grammar_yml(file_name):
         data = yaml.safe_load(file)
     return data
 
-# 分析syntax中的终结符和非终结符
+# 分析syntax中的终结符和非终结符,通过left_symbols和right_symbols
 def analyze_syntax(syntax_rules):
-    nonterminals = set()
-    terminals = set()
-    attributes = {}
-
-    # 生成一个符号到规则的映射表
+    left_symbols = set()
+    right_symbols = set()
     rule_map = {}
 
-    left_symbols = set()  # 左侧符号（非终结符）
-    right_symbols = set()  # 右侧符号
-
     for rule in syntax_rules:
-        # 获取规则左侧的非终结符
-        left_side = rule['rule'].split("->")[0].strip()
+        left_side, right_side = rule['rule'].split("->")
+        left_side = left_side.strip()
+        right_side = right_side.strip().split()
+
         left_symbols.add(left_side)
+        right_symbols.update(right_side)
 
-        # 获取规则右侧的符号，可能包含终结符和非终结符
-        right_side = rule['rule'].split("->")[1].strip().split()
-        right_symbols.update(right_side)  # 记录右侧符号
+        # 添加规则和对应的动作到映射表
+        rule_entry = {
+            "rules": right_side,
+            "actions": rule.get("actions", [])  # 处理可能没有 actions 的情况
+        }
+        rule_map.setdefault(left_side, []).append(rule_entry)
 
-        for symbol in right_side:
-            if symbol not in left_symbols:
-                terminals.add(symbol)
-
-        # 将规则添加到映射表
-        if left_side not in rule_map:
-            rule_map[left_side] = []
-        rule_map[left_side].append(right_side)
-
-    # 确定终结符
-    terminals.difference_update(left_symbols)
-    nonterminals.update(left_symbols)
-
+    terminals = right_symbols - left_symbols  # 终结符是右侧符号减去左侧符号
+    nonterminals = left_symbols
     return nonterminals, terminals, rule_map, left_symbols, right_symbols
 
-# 使用BFS生成语法例子
+
+# 使用广度优先搜索（BFS）生成语法例子，随机选择规则进行派生
 def generate_example_bfs(start_symbol, rule_map, nonterminals, terminals):
-    """
-    使用广度优先搜索（BFS）生成语法例子，随机选择规则进行派生。
-    """
     queue = deque([start_symbol])  # 队列用于处理非终结符
     result = []  # 存放最终结果
 
     while queue:
+        # print(queue)
         current_symbol = queue.popleft()
 
         if current_symbol in nonterminals:
             # 随机选择适用规则进行展开
-            if current_symbol in rule_map:
+            # if current_symbol in rule_map:
                 chosen_rule = random.choice(rule_map[current_symbol])
-                queue.extend(chosen_rule)  # 将右侧符号加入队列
+                right_side = chosen_rule['rules']  # 获取右侧符号
+                # print(chosen_rule)
+                queue.extend(right_side)  # 将右侧符号加入队列
+
+                # 处理语义动作部分
+                actions = chosen_rule.get('actions', [])
+                for action in actions:
+                    execute_action(action)       
         else:
             # 如果是终结符，直接添加到结果
             result.append(current_symbol)
-
     return ' '.join(result)
 
-# 自动智能判断起点符号
+def execute_function(function_name: str, params_values: dict):
+    # Check if the specified function exists
+    if function_name not in grammar_content['functions']:
+        raise ValueError(f"Function '{function_name}' not found in the provided YAML.")
+    
+    function_data = grammar_content['functions'][function_name]
+    params = function_data.get('params', [])
+    implementation_code = function_data.get('implementation', '')
+
+    # Prepare a mapping to replace '.' with a valid character
+    converted_params = []
+    param_replacements = {}
+
+    for param in params:
+        original_name = param['name']
+        converted_name = original_name.replace('.', '_DOT_')
+        param_replacements[original_name] = converted_name
+        converted_params.append({'name': converted_name, 'type': param.get('type', None)})
+
+    # Replace parameter names in the implementation code
+    for original_name, converted_name in param_replacements.items():
+        implementation_code = implementation_code.replace(original_name, converted_name)
+
+    # Create function dynamically using exec with modified parameter names
+    exec(implementation_code, globals())
+
+    # Prepare parameter values with modified parameter names
+    param_values = {}
+    for param in converted_params:
+        param_name = param['name']
+        param_type = param.get('type', None)
+
+        # Handle 'attribute' type
+        if param_type == "attribute":
+            symbol, attribute = param_name.replace('_DOT_', '.').split(".")
+            param_values[param_name] = symbol_attributes.get(symbol, {}).get(attribute, None)
+        
+        # Handle 'symbol_table' type - use global symbol_table directly
+        elif param_type == "symbol_table":
+            param_values[param_name] = symbol_table  # Use the global symbol_table
+        
+        else:
+            param_values[param_name] = None
+
+    # Dynamically call the function with prepared values
+    func = globals().get(function_name)
+    if func:
+        # Convert param_values keys back to original names
+        converted_param_values = {
+            param_replacements.get(key, key): value for key, value in param_values.items()
+        }
+        result = func(**converted_param_values)  # Call the function with the prepared parameter values
+        return result
+    else:
+        raise ValueError(f"Function '{function_name}' could not be created.")
+
+def execute_action(action):
+    # 解析 action 字符串，形式如 "F.dif := generator_difficult" 或 "S.dif := F.dif / 2"
+    if ":=" in action:
+        left, right = action.split(":=")
+        left, right = left.strip(), right.strip()
+
+        func_name = next((name for name in grammar_content["functions"].keys() if name in right), None)
+
+        if func_name:
+            # 如果右侧是一个函数，调用执行函数并将结果赋值给左侧
+            result = execute_function(func_name, params_values={})
+            symbol_left, attribute_left = left.split(".")
+            symbol_attributes.setdefault(symbol_left, {})[attribute_left] = result
+
+        else:
+            # 处理常量赋值或符号间属性赋值运算
+            symbol_left, attribute_left = left.split(".")
+            value = compute_expression(right)
+            symbol_attributes.setdefault(symbol_left, {})[attribute_left] = value
+
+
+def compute_expression(expr):
+    # 自定义一个函数来支持所有操作符和函数
+    # 替换表达式中的symbol.attribute为其对应的值
+    def evaluate_attribute(match):
+        symbol, attribute = match.group(1), match.group(2)
+        if symbol in symbol_attributes and attribute in symbol_attributes[symbol]:
+            return str(symbol_attributes[symbol][attribute])
+        return match.group(0)
+    
+    # 替换常量值
+    def evaluate_constant(match):
+        constant = match.group(0)
+        if derived_table.has_value(constant):
+            return str(derived_table.get_value(constant)['value'])
+        return constant  # 如果常量不存在于 derived_table 中，保留原值
+
+    # 导入所有必要的库
+    import re
+    import math
+    from sympy import symbols, sympify
+
+    # 替换常量
+    expr = re.sub(r'\b\w+\b', evaluate_constant, expr)
+
+    # 替换表达式中的symbol.attribute结构
+    expr = re.sub(r'(\w+)\.(\w+)', evaluate_attribute, expr)
+
+    # 对于包含数学函数（如sin, cos, sqrt等）的表达式，可以用sympy解析
+    expr = sympify(expr)  # sympy可以处理各种操作符、函数以及数学表达式
+    
+    # 计算表达式的值
+    result = expr.evalf()
+    return result
+
+# 自动判断起点符号：选择出现在左侧但从未出现在右侧的符号。
 def get_start_symbol(left_symbols, right_symbols):
-    """
-    自动判断起点符号：选择出现在左侧但从未出现在右侧的符号。
-    """
+
     # 起点符号应是没有在右侧出现的左侧符号
     start_candidates = left_symbols - right_symbols
 
-    if start_candidates:
-        return next(iter(start_candidates))  # 返回任意一个候选符号
-    else:
-        raise ValueError("无法找到有效的起点符号，所有左侧符号都出现在右侧。")
+    # 返回任意一个候选符号
+    return next(iter(start_candidates))  
+
+    # if start_candidates:
+    #     return next(iter(start_candidates))  # 返回任意一个候选符号
+    # else:
+    #     raise ValueError("无法找到有效的起点符号，所有左侧符号都出现在右侧。")
 
 if __name__ == "__main__":
+
+    symbol_attributes = {}
     # 解析grammar.yml
     grammar_file_address = "input/grammar.yml"
     grammar_content = parse_grammar_yml(grammar_file_address)
@@ -111,3 +219,6 @@ if __name__ == "__main__":
     generated_example = generate_example_bfs(start_symbol, rule_map, nonterminals, terminals)
 
     print("生成的随机语法例子:", generated_example)
+
+    # print(symbol_table)
+    print(symbol_attributes)

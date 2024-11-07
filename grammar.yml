@@ -1,0 +1,109 @@
+syntax:
+  - rule: E -> S F
+    actions:
+      - E.dif := generator_difficult
+      - S.dif := E.dif / 2
+      - F.dif := E.dif / 2
+  - rule: S -> Select A
+    actions:
+      - A.dif := S.dif
+  - rule: A -> Attribute
+    actions:
+      - Attribute.dif := A.dif
+  - rule: F -> From T
+    actions:
+      - T.dif := F.dif
+  - rule: T -> Table
+    actions:
+      - Table.dif := T.dif
+      - Table.type := rand(symbol_table, Table.dif)
+      # - Attribute.type := select(Table.type, Attribute.dif)
+      # - Table.value := generate(Table.type, Table.dif)
+
+# 定义属性部分
+attributes:
+  - name: GPA
+    type: CustomFloat
+    params: [1, 1.0, 4.0]
+  - name: Major
+    type: CustomString
+    params: [20]
+  - name: Location
+    type: CustomString
+    params: [30]
+  - name: ID
+    type: CustomInt
+    params: [1000, 9999]
+  - name: Age
+    type: CustomInt
+    params: [18, 25]
+  - name: Name
+    type: CustomString
+    params: [10]
+  - name: Unit
+    type: RandomSelector
+    params: [1.0, 2.0, 3.0, 4.0]
+  - name: Classroom
+    type: CustomString
+    params: [5]
+
+# 定义表格部分
+tables:
+  - name: Course
+    attributes: [ID, Name, Unit, Classroom]
+  - name: Student
+    attributes: [ID, GPA, Age]
+  - name: School
+    attributes: [Major, Location]
+
+constants:
+  - generator_difficult: 10
+
+functions:
+  rand:
+    params:
+      - name: symbol_table
+        type: symbol_table
+      - name: Table.dif
+        type: attribute
+    implementation: |
+      def rand(symbol_table, Table.dif):
+          import random
+          # 过滤出 type 为 "table" 的完整符号条目
+          table_symbols = [symbol for symbol in symbol_table.symbols.values() if symbol['type'] == 'table']
+          
+          # 筛选出难度等于 Table.dif 的完整符号条目
+          matching_dif_symbols = [symbol for symbol in table_symbols if symbol['dif'] == Table.dif]
+
+          if matching_dif_symbols:
+              # 如果存在多个等于 Table.dif 的符号，随机选择并返回其中一个
+              return random.choice(matching_dif_symbols)
+          
+          # 如果没有与 Table.dif 匹配的条目，寻找最接近 Table.dif 的条目
+          closest_dif_symbols = sorted(table_symbols, key=lambda x: abs(x['dif'] - Table.dif))
+          if closest_dif_symbols:
+              # 返回最接近的符号之一，随机选择一个完整条目
+              return random.choice(closest_dif_symbols)
+
+          # 如果未找到符合条件的符号，返回 None
+          return None
+
+  select:
+    params:
+      - name: Table.type
+        type: attribute
+      - name: Attribute.dif
+        type: attribute
+    implementation: |
+      def select(Table.type, Attribute.dif):
+        pass
+
+  generate:
+    params:
+      - name: Table.type
+        type: attribute
+      - name: Table.dif
+        type: attribute
+    implementation: |
+      def generate(table_type, difficulty):
+        pass
