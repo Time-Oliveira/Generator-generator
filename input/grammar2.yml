@@ -71,11 +71,11 @@ syntax:
     #   - A.dif := P.dif / 3
     #   - O.dif := P.dif / 3
     #   - Value.dif := P.dif / 3
-  - rule: P -> A O A
+  - rule: P -> A O Attribute
     # actions:
     #   - A.dif := P.dif / 3
     #   - O.dif := P.dif / 3
-    #   - A.dif := P.dif / 3
+    #   - Attribute.dif := P.dif / 3
   - rule: P -> A IN (E)
     # actions:
     #   - A.dif := P.dif / 2
