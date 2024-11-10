@@ -43,23 +43,23 @@ syntax:
     #   - T.dif := T.dif - Table.dif
     #   - Table.ref := rand(Symbol_Table, T.dif, table)
     #   - Table.array := Write_Array(Table.ref.value)
-  - rule: Z -> Z OR S
+  - rule: Z -> Z OR Y
     # actions:
     #   - Z.dif := Z.dif / 2
-    #   - S.dif := Z.dif / 2
-  - rule: Z -> S
+    #   - Y.dif := Z.dif / 2
+  - rule: Z -> Y
     # actions:
-    #   - S.dif := Z.dif
-  - rule: S -> S AND C
+    #   - Y.dif := Z.dif
+  - rule: Y -> S AND C
     # actions:
-    #   - C.dif := S.dif / 2
-    #   - S.dif := S.dif / 2
-  - rule: S -> C C
+    #   - C.dif := Y.dif / 2
+    #   - Y.dif := Y.dif / 2
+  - rule: Y -> C 
     # actions:
-    #   - C.dif := S.dif
+    #   - C.dif := Y.dif
   - rule: C -> (Z)
     # actions:
-    #   - Z.dif := S.dif
+    #   - Z.dif := Y.dif
   - rule: C -> NOT C
     # actions:
     #   - C.dif := C.dif
