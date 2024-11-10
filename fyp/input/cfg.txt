@@ -1,0 +1,20 @@
+      def select(Table.type, Attribute.dif):
+          import random
+
+          table_symbols = [attr for attr in Table.type if attr['dif'] == 'Attribute.dif']
+          
+          # 筛选出难度等于 Table.dif 的完整符号条目
+          matching_dif_symbols = [symbol for symbol in table_symbols if symbol['dif'] == Table.dif]
+
+          if matching_dif_symbols:
+              # 如果存在多个等于 Table.dif 的符号，随机选择并返回其中一个
+              return random.choice(matching_dif_symbols)
+          
+          # 如果没有与 Table.dif 匹配的条目，寻找最接近 Table.dif 的条目
+          closest_dif_symbols = sorted(table_symbols, key=lambda x: abs(x['dif'] - Table.dif))
+          if closest_dif_symbols:
+              # 返回最接近的符号之一，随机选择一个完整条目
+              return random.choice(closest_dif_symbols)
+
+          # 如果未找到符合条件的符号，返回 None
+          return None
