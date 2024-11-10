@@ -57,7 +57,7 @@ syntax:
   - rule: Y -> C 
     # actions:
     #   - C.dif := Y.dif
-  - rule: C -> (Z)
+  - rule: C -> ( Z )
     # actions:
     #   - Z.dif := Y.dif
   - rule: C -> NOT C
