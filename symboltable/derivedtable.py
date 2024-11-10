@@ -22,6 +22,10 @@ class DerivedTable:
     #     if name in self.values:
     #         self.values[name]['value'] = value
 
+    def has_value(self, name):
+        # 判断值是否存在
+        return name in self.values
+    
     def __repr__(self):
         return f"DerivedTable({self.values})"
     

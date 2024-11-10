@@ -1,48 +1,47 @@
+imports:
+  - import numpy
+  - from itertools import combinations
+  - import random
+  - import pandas as pd
+
 syntax:
   - rule: E -> S F
     actions:
-      - F.dif := generator_difficult
-      - S.dif := F.dif / 2
-      - F.dif := F.dif / 2
+      - E.dif := generator_difficult
+      - S.dif := E.dif / 2
+      - F.dif := E.dif / 2
   - rule: S -> Select A
     actions:
       - A.dif := S.dif
-  - rule: A -> Attribute1
+  - rule: A -> Attribute
     actions:
-      - Attribute1.dif := A.dif
-  - rule: A -> Attribute2
-    actions:
-      - Attribute2.dif := A.dif
-  - rule: A -> Attribute3
-    actions:
-      - Attribute3.dif := A.dif
+      - Attribute.dif := A.dif
   - rule: F -> From T
     actions:
-      - I.dif := F.dif
+      - T.dif := F.dif
   - rule: T -> Table
     actions:
-      - Table.dif := I.dif
-      - Table.type := rand(SymbolTable, Table.dif)
-      - Attribute.type := select(Attribute.type, Attribute.dif)
-      - Table.value := generate(Table.type, Table.dif)
+      - Table.dif := T.dif
+      - Table.target := rand(symbol_table, Table.dif) 
+      - Attribute.target := select(Table.target, Attribute.dif)
+      - generate(Table.target, Attribute.target, Table.dif)
 
-# 定义属性部分
 attributes:
   - name: GPA
     type: CustomFloat
-    params: [1, 1.0, 4.0]
+    params: [2, 0.00, 4.00]
   - name: Major
-    type: CustomString
-    params: [20]
+    type: RandomSelector
+    params: ['CST', 'DS', 'AI', 'STAT', 'APSY', 'ACCT', 'PRA', 'AM', 'LSE', 'EPIN', 'FIN', 'MKT', 'AE', 'BA', 'FM', 'GAD', 'BA']
   - name: Location
-    type: CustomString
-    params: [30]
+    type: CustomID
+    params: ["T{1-6}|T29"]
   - name: ID
-    type: CustomInt
-    params: [1000, 9999]
+    type: CustomID
+    params: ["l1N9"]
   - name: Age
     type: CustomInt
-    params: [18, 25]
+    params: [16, 30]
   - name: Name
     type: CustomString
     params: [10]
@@ -50,8 +49,9 @@ attributes:
     type: RandomSelector
     params: [1.0, 2.0, 3.0, 4.0]
   - name: Classroom
-    type: CustomString
-    params: [5]
+    type: CustomID
+    params: ["T{1-6}-{1-6}N2|T29-{1-6}N2"]
+
 
 # 定义表格部分
 tables:
@@ -62,27 +62,99 @@ tables:
   - name: School
     attributes: [Major, Location]
 
+
 constants:
   - generator_difficult: 10
 
 functions:
-  select:
-    params:
-      - name: Table.type
-      - name: Attribute.dif
-    implementation: |
-      def select(Table.type, Attribute.dif):
-
   rand:
     params:
-      - name: SymbolTable
+      - name: symbol_table
+        type: symbol_table
       - name: Table.dif
+        type: attribute
     implementation: |
-      def rand(SymbolTable, Table.dif):
+    
+      def rand(symbol_table, Table.dif):
+          table_symbols = [symbol for symbol in symbol_table.symbols.values() if symbol['type'] == 'table']
+          matching_dif_symbols = [symbol for symbol in table_symbols if symbol['dif'] == Table.dif]
+
+          if matching_dif_symbols:
+              return random.choice(matching_dif_symbols)['name']
+
+          closest_dif_symbols = sorted(table_symbols, key=lambda x: abs(x['dif'] - Table.dif))
+          return random.choice(closest_dif_symbols)['name'] if closest_dif_symbols else Nonene
+
+  select:
+    params:
+      - name: Table.target
+        type: attribute
+      - name: Attribute.dif
+        type: attribute
+    implementation: |
+        def select(Table.target, Attribute.dif):
+
+            attribute_names = [attr.strip() for attr in symbol_table.get_symbol(Table.target)['value'].split(',')]
+
+            matching_attributes = [
+                attr_symbol for attr_name in attribute_names 
+                if (attr_symbol := symbol_table.get_symbol(attr_name)) and attr_symbol['dif'] == Attribute.dif
+            ]
+
+            if matching_attributes:
+                return random.choice(matching_attributes)['name']
+
+            closest_attributes = [
+                attr_symbol for attr_name in attribute_names 
+                if (attr_symbol := symbol_table.get_symbol(attr_name))
+            ]
+
+            return random.choice(closest_attributes)['name'] if closest_attributes else None
 
   generate:
     params:
-      - name: Table.type
+      - name: Table.target
+        type: attribute
+      - name: Attribute.target
+        type: attribute
       - name: Table.dif
+        type: attribute
     implementation: |
-      def generate(table_type, difficulty):
+        def generate(Table.target, Attribute.target, Table.dif):
+            table_data = []
+
+            for _ in range(int(Table.dif)):
+                row = {}
+
+                # 获取属性符号和对应的生成规则
+                attr_symbol = symbol_table.get_symbol(Attribute.target)
+                attr_value = attr_symbol['value']
+                
+                # 解析出类名和参数
+                match = re.match(r"(\w+)\((.*)\)", attr_value)
+                if match:
+                    class_name = match.group(1)
+                    params_str = match.group(2).strip()
+                    
+                    # 处理多个参数，确保这些参数作为字面值（字符串）
+                    # 如果是列表，直接转换为 list
+                    if params_str.startswith('[') and params_str.endswith(']'):
+                        params = [item.strip().strip("'") for item in params_str[1:-1].split(",")]
+                    else:
+                        params = [eval(param.strip()) for param in params_str.split(",")]
+                else:
+                    raise ValueError(f"Invalid format for {Attribute_target}: {attr_value}")
+                
+                generator_class = globals().get(class_name)
+                if not generator_class:
+                    raise ValueError(f"Unknown generator class '{class_name}' for attribute '{Attribute.target}'.")
+
+                # 创建生成器实例并生成数据
+                custom_obj = generator_class(*params)
+                row[Attribute.target] = custom_obj.generate()
+
+                table_data.append(row)
+
+            # 创建 DataFrame 并打印
+            df = pd.DataFrame(table_data)
+            print(df)
