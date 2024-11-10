@@ -1,16 +1,46 @@
-from collections import deque
+
+import re
+import math
 import yaml
 import random
+from collections import deque
+from sympy import symbols, sympify
+from CustomClass import CustomClass
 from symboltable import derivedtable
 from symboltable.symboltable import *
 from symboltable.derivedtable import *
-from CustomClass import CustomClass
 
-# 解析YAML文件
 def parse_grammar_yml(file_name):
+    """加载并解析 grammar.yml 文件"""
     with open(file_name, 'r', encoding="utf-8") as file:
         data = yaml.safe_load(file)
     return data
+
+def dynamic_import(imports):
+    """根据 grammar.yml 中的 imports 部分动态导入库"""
+    for item in imports:
+        # 判断导入格式
+        try:
+            if item.startswith('import '):
+                # 支持 'import xxx' 和 'import xxx as yyy' 形式
+                parts = item[len('import '):].split(' as ')
+                module = parts[0]
+                alias = parts[1] if len(parts) > 1 else None
+                globals()[module] = __import__(module)
+                if alias:
+                    globals()[alias] = globals()[module]
+            elif item.startswith('from '):
+                # 支持 'from xxx import yyy' 形式
+                module, components = item[len('from '):].split(' import ')
+                components_list = components.split(', ')
+                module_ref = __import__(module, fromlist=components_list)
+                for comp in components_list:
+                    globals()[comp] = getattr(module_ref, comp)
+            else:
+                print(f"Unsupported import format: {item}")
+        except ImportError as e:
+            print(f"Error importing {item}: {e}")
+
 
 # 分析syntax中的终结符和非终结符,通过left_symbols和right_symbols
 def analyze_syntax(syntax_rules):
@@ -38,22 +68,18 @@ def analyze_syntax(syntax_rules):
     return nonterminals, terminals, rule_map, left_symbols, right_symbols
 
 
-# 使用广度优先搜索（BFS）生成语法例子，随机选择规则进行派生
-def generate_example_bfs(start_symbol, rule_map, nonterminals, terminals):
-    queue = deque([start_symbol])  # 队列用于处理非终结符
-    result = []  # 存放最终结果
+def generate_example_dfs(start_symbol, rule_map, nonterminals, terminals):
+    stack = [start_symbol]  # 栈用于处理非终结符
 
-    while queue:
-        # print(queue)
-        current_symbol = queue.popleft()
+    while stack:
+        current_symbol = stack.pop()
 
         if current_symbol in nonterminals:
             # 随机选择适用规则进行展开
-            # if current_symbol in rule_map:
+            if current_symbol in rule_map:
                 chosen_rule = random.choice(rule_map[current_symbol])
-                right_side = chosen_rule['rules']  # 获取右侧符号
-                # print(chosen_rule)
-                queue.extend(right_side)  # 将右侧符号加入队列
+                right_side = chosen_rule['rules'][::-1]  # 逆序加入栈以保持顺序
+                stack.extend(right_side)
 
                 # 处理语义动作部分
                 actions = chosen_rule.get('actions', [])
@@ -61,10 +87,19 @@ def generate_example_bfs(start_symbol, rule_map, nonterminals, terminals):
                     execute_action(action)       
         else:
             # 如果是终结符，直接添加到结果
-            result.append(current_symbol)
-    return ' '.join(result)
+            generated_example.append(current_symbol)
 
-def execute_function(function_name: str, params_values: dict):
+    # 对生成的结果进行替换
+    for i, symbol in enumerate(generated_example):
+        if symbol in symbol_attributes and 'target' in symbol_attributes[symbol]:
+            replacement = symbol_attributes[symbol]['target']
+            if replacement:  # 只在替代值不为空时进行替换
+                generated_example[i] = replacement
+
+    return ' '.join(generated_example)
+
+
+def execute_function(function_name: str):
     # Check if the specified function exists
     if function_name not in grammar_content['functions']:
         raise ValueError(f"Function '{function_name}' not found in the provided YAML.")
@@ -119,30 +154,35 @@ def execute_function(function_name: str, params_values: dict):
         return result
     else:
         raise ValueError(f"Function '{function_name}' could not be created.")
+    
 
 def execute_action(action):
-    # 解析 action 字符串，形式如 "F.dif := generator_difficult" 或 "S.dif := F.dif / 2"
+    """根据 grammar.yml 动作执行相应的操作"""
     if ":=" in action:
-        left, right = action.split(":=")
-        left, right = left.strip(), right.strip()
+        # 处理带 := 的动作 (赋值)
+        left, right = map(str.strip, action.split(":="))
 
         func_name = next((name for name in grammar_content["functions"].keys() if name in right), None)
 
         if func_name:
             # 如果右侧是一个函数，调用执行函数并将结果赋值给左侧
-            result = execute_function(func_name, params_values={})
-            symbol_left, attribute_left = left.split(".")
-            symbol_attributes.setdefault(symbol_left, {})[attribute_left] = result
-
+            result = execute_function(func_name)
         else:
             # 处理常量赋值或符号间属性赋值运算
-            symbol_left, attribute_left = left.split(".")
-            value = compute_expression(right)
-            symbol_attributes.setdefault(symbol_left, {})[attribute_left] = value
+            result = compute_expression(right)
 
+        # 更新符号表
+        symbol_left, attribute_left = left.split(".")
+        symbol_attributes.setdefault(symbol_left, {})[attribute_left] = result
 
-def compute_expression(expr):
-    # 自定义一个函数来支持所有操作符和函数
+    else:
+        # 处理没有 := 的动作，调用函数
+        func_name = next((name for name in grammar_content["functions"].keys() if name in action), None)
+        if func_name:
+            execute_function(func_name)
+
+# 自定义一个函数来支持所有操作符和函数
+def compute_expression(expr):    
     # 替换表达式中的symbol.attribute为其对应的值
     def evaluate_attribute(match):
         symbol, attribute = match.group(1), match.group(2)
@@ -156,11 +196,6 @@ def compute_expression(expr):
         if derived_table.has_value(constant):
             return str(derived_table.get_value(constant)['value'])
         return constant  # 如果常量不存在于 derived_table 中，保留原值
-
-    # 导入所有必要的库
-    import re
-    import math
-    from sympy import symbols, sympify
 
     # 替换常量
     expr = re.sub(r'\b\w+\b', evaluate_constant, expr)
@@ -190,12 +225,13 @@ def get_start_symbol(left_symbols, right_symbols):
     #     raise ValueError("无法找到有效的起点符号，所有左侧符号都出现在右侧。")
 
 if __name__ == "__main__":
-
+    generated_example = []
     symbol_attributes = {}
     # 解析grammar.yml
     grammar_file_address = "input/grammar.yml"
     grammar_content = parse_grammar_yml(grammar_file_address)
-
+    imports = grammar_content.get('imports', [])
+    dynamic_import(imports)
     # 加载constants到派生表
     load_constants_into_derivedtable(grammar_content['constants'])
 
@@ -216,9 +252,14 @@ if __name__ == "__main__":
     start_symbol = get_start_symbol(left_symbols, right_symbols)
 
     # 从起点符号开始生成派生例子
-    generated_example = generate_example_bfs(start_symbol, rule_map, nonterminals, terminals)
+    generate_example_dfs(start_symbol, rule_map, nonterminals, terminals)
 
-    print("生成的随机语法例子:", generated_example)
+    print("生成的随机语法例子:", ' '.join(generated_example))
 
+    # print(show(generated_example, symbol_attributes['Table']['type'], symbol_attributes['Attribute']['type']))
     # print(symbol_table)
-    print(symbol_attributes)
+    # print(symbol_attributes)
+    # print(symbol_attributes['Attribute']['target'])
+    # # print(symbol_attributes['Attribute']['dif'])
+    # print(symbol_attributes['Table']['value'])
+    # print(symbol_table.get_symbol(random.choice(symbol_table.get_symbol(symbol_attributes['Table']['target'])['value'].split(','))))
