@@ -20,7 +20,7 @@ syntax:
   - rule: F -> From T
     # actions:
     #   - T.dif := F.dif
-  - rule: F -> From (E) As TableName
+  - rule: F -> From ( E ) As TableName
     # actions:
     #   - E.dif := F.dif
   - rule: A -> Attribute
@@ -76,11 +76,11 @@ syntax:
     #   - A.dif := P.dif / 3
     #   - O.dif := P.dif / 3
     #   - Attribute.dif := P.dif / 3
-  - rule: P -> A IN (E)
+  - rule: P -> A IN ( E )
     # actions:
     #   - A.dif := P.dif / 2
     #   - E.dif := P.dif / 2
-  - rule: P -> EXISTS (E)
+  - rule: P -> EXISTS ( E )
     # actions:
     #   - E.dif := P.dif
 
