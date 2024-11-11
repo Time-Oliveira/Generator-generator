@@ -9,7 +9,6 @@ syntax:
     #   - F.dif := E.dif / 2
   - rule: E -> S F W
     # actions:
-    #   - E.dif := generator_difficult
     #   - S.dif := E.dif / 3
     #   - F.dif := E.dif / 3
     #   - W.dif := E.dif / 3
