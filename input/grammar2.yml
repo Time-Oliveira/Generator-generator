@@ -1,9 +1,10 @@
 syntax:
   - rule: L -> E
     # actions:
+    #   - L.dif := generator_difficult
   - rule: E -> S F
     # actions:
-    #   - E.dif := generator_difficult
+    #   - E.dif := L.dif
     #   - S.dif := E.dif / 2
     #   - F.dif := E.dif / 2
   - rule: E -> S F W
