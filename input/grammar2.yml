@@ -96,7 +96,7 @@ attributes:
   - name: Major
     type: CustomString
     params: [20]
-    dif = 2
+    dif: 2
 
   - name: Location
     type: CustomString
