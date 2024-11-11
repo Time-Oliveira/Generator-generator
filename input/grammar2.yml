@@ -1,90 +1,90 @@
 syntax:
   - rule: L -> E
-    # actions:
-    #   - L.dif := generator_difficult
-    #   - E.dif := L.dif
+    actions:
+      - L.dif := generator_difficult
+      - E.dif := L.dif
   - rule: E -> S F
-    # actions:
-    #   - S.dif := E.dif / 2
-    #   - F.dif := E.dif / 2
+    actions:
+      - S.dif := E.dif / 2
+      - F.dif := E.dif / 2
   - rule: E -> S F W
-    # actions:
-    #   - S.dif := E.dif / 3
-    #   - F.dif := E.dif / 3
-    #   - W.dif := E.dif / 3
+    actions:
+      - S.dif := E.dif / 3
+      - F.dif := E.dif / 3
+      - W.dif := E.dif / 3
   - rule: S -> Select A
-    # actions:
-    #   - A.dif := S.dif
+    actions:
+      - A.dif := S.dif
   - rule: S -> Select *
   - rule: W -> Where Z
-    # actions:
-    #   - Z.dif := W.dif
+    actions:
+      - Z.dif := W.dif
   - rule: F -> From T
-    # actions:
-    #   - T.dif := F.dif
+    actions:
+      - T.dif := F.dif
   - rule: F -> From ( E ) As TableName
-    # actions:
-    #   - E.dif := F.dif
+    actions:
+      - E.dif := F.dif
   - rule: A -> Attribute
-    # actions:
-    #   - Attribute.dif := A.dif
+    actions:
+      - Attribute.dif := A.dif
   - rule: A -> Attribute, A
-    # actions:
-    #   - A.dif := A.dif - Attribute.dif
-    #   - Attribute.dif := A.dif
+    actions:
+       - Attribute.dif := A.dif / 2
+       - A.dif := A.dif - Attribute.dif
   - rule: O -> Operator
-    # actions:
-    #   - Operator.dif := O.dif
+    actions:
+      - Operator.dif := O.dif
   - rule: T -> Table
-    # actions:
-    #   - Table.dif := T.dif
-    #   - Table.ref := rand(Symbol_Table, T.dif, table)
-    #   - Table.array := Write_Array(Table.ref.value)
+    actions:
+      - Table.dif := T.dif
+      - Table.ref := rand(Symbol_Table, T.dif, table)
+      - Table.array := Write_Array(Table.ref.value)
   - rule: T -> Table Join T
-    # actions:
-    #   - T.dif := T.dif - Table.dif
-    #   - Table.ref := rand(Symbol_Table, T.dif, table)
-    #   - Table.array := Write_Array(Table.ref.value)
+    actions:
+      - T.dif := T.dif - Table.dif
+      - Table.ref := rand(Symbol_Table, T.dif, table)
+      - Table.array := Write_Array(Table.ref.value)
   - rule: Z -> Z OR Y
-    # actions:
-    #   - Z.dif := Z.dif / 2
-    #   - Y.dif := Z.dif / 2
+    actions:
+      - Z.dif := Z.dif / 2
+      - Y.dif := Z.dif / 2
   - rule: Z -> Y
-    # actions:
-    #   - Y.dif := Z.dif
+    actions:
+      - Y.dif := Z.dif
   - rule: Y -> S AND C
-    # actions:
-    #   - C.dif := Y.dif / 2
-    #   - Y.dif := Y.dif / 2
-  - rule: Y -> C 
-    # actions:
-    #   - C.dif := Y.dif
+    actions:
+      - C.dif := Y.dif / 2
+      - Y.dif := Y.dif / 2
+  - rule: Y -> C
+    actions:
+      - C.dif := Y.dif
   - rule: C -> ( Z )
-    # actions:
-    #   - Z.dif := Y.dif
+    actions:
+      - Z.dif := Y.dif
   - rule: C -> NOT C
-    # actions:
-    #   - C.dif := C.dif
+    actions:
+      - C.dif := C.dif
   - rule: C -> P
-    # actions:
-    #   - P.dif := C.dif
+    actions:
+      - P.dif := C.dif
   - rule: P -> A O Value
-    # actions:
-    #   - A.dif := P.dif / 3
-    #   - O.dif := P.dif / 3
-    #   - Value.dif := P.dif / 3
+    actions:
+      - A.dif := P.dif / 3
+      - O.dif := P.dif / 3
+      - Value.dif := P.dif / 3
   - rule: P -> A O Attribute
-    # actions:
-    #   - A.dif := P.dif / 3
-    #   - O.dif := P.dif / 3
-    #   - Attribute.dif := P.dif / 3
+    actions:
+      - A.dif := P.dif / 3
+      - O.dif := P.dif / 3
+      - Attribute.dif := P.dif / 3
   - rule: P -> A IN ( E )
-    # actions:
-    #   - A.dif := P.dif / 2
-    #   - E.dif := P.dif / 2
+    actions:
+      - A.dif := P.dif / 2
+      - E.dif := P.dif / 2
   - rule: P -> EXISTS ( E )
-    # actions:
-    #   - E.dif := P.dif
+    actions:
+      - E.dif := P.dif
 
 # 定义属性部分
 attributes:
