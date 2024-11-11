@@ -1,4 +1,7 @@
 syntax:
+  - rule: L -> E
+    # actions:
+    
   - rule: E -> S F
     # actions:
     #   - E.dif := generator_difficult
