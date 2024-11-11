@@ -150,16 +150,15 @@ functions:
     params:
       - name: symbol_table
       - name: difficulty
-      - name: table_type
     implementation: |
-      def rand(symbol_table, difficulty, table_type):
+      def rand(symbol_table, difficulty):
           import random
           filtered_tables = [
               (name, details) for name, details in symbol_table.items()
-              if details['type'] == table_type and details['difficulty'] == difficulty
+              if details['difficulty'] == difficulty
           ]
           if not filtered_tables:
-              raise ValueError("No matching table found with the specified difficulty and type.")
+              raise ValueError("No matching table found with the specified difficulty.")
           selected_table = random.choice(filtered_tables)
           return {"name": selected_table[0], "details": selected_table[1]}
   Write_Array:
