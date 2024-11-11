@@ -1,6 +1,7 @@
 syntax:
   - rule: L -> E
     # actions:
+    
   - rule: E -> S F
     # actions:
     #   - E.dif := generator_difficult
@@ -91,36 +92,56 @@ attributes:
   - name: GPA
     type: LimitedFloat
     params: [1, 1.0, 4.0]
+    dif: 2
+
   - name: Major
     type: CustomString
     params: [20]
+    dif = 2
+
   - name: Location
     type: CustomString
     params: [20]
+    dif: 2
+
   - name: ID
     type: CustomInt
     params: [1000, 9999]
+    dif: 2
+
   - name: Age
     type: CustomInt
     params: [18, 25]
+    dif: 2
+
   - name: Name
     type: CustomString
     params: [10]
+    dif: 2
+
   - name: Unit
     type: UnitFloat
     params: [1.0, 2.0, 3.0, 4.0]
+    dif: 2
+
   - name: Classroom
     type: CustomString
     params: [5]
+    dif: 2
 
 # 定义表格部分
 tables:
   - name: Course
     attributes: [ID, Name, Unit, Classroom]
+    dif: 8
+
   - name: Student
     attributes: [ID, GPA, Age]
+    dif: 7
+
   - name: School
     attributes: [Major, Location]
+    dif: 5
 
 constants:
   - generator_difficult: 10
