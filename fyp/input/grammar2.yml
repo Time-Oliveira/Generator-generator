@@ -38,7 +38,7 @@ syntax:
   - rule: T -> Table
     actions:
       - Table.dif := T.dif
-      # - Table.ref := rand(Symbol_Table, T.dif, table)
+      - Table.ref := rand(Symbol_Table, T.dif, table)
       # - Table.array := Write_Array(Table.ref.value)
   - rule: T -> Table Join T
     actions:
@@ -149,7 +149,11 @@ functions:
   rand:
     params:
       - name: symbol_table
-      - name: difficulty
+        type: symbol_table
+      - name: 
+        type: constant
+      - name: xxx.xxx
+        type: attribute
     implementation: |
       def rand(symbol_table, difficulty):
           import random

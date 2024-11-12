@@ -31,17 +31,19 @@ def generate_example_dfs(start_symbol, rule_map, nonterminals):
             # 如果是终结符，直接添加到结果
             generated_example.append(current_symbol)
 
-    # 对生成的结果进行替换
+    # 对生成的结果进行替换, 将symbol替换为symbol.target中的值(symbol_attributes[symbol]['target'])
     for i, symbol in enumerate(generated_example):
+        # 判断是否存在symbol.target
         if symbol in symbol_attributes and 'target' in symbol_attributes[symbol]:
             replacement = symbol_attributes[symbol]['target']
-            if replacement:  # 只在替代值不为空时进行替换
+            # 判断是否存在symbol.target是否为空
+            if replacement:
                 generated_example[i] = replacement
 
     return ' '.join(generated_example)
 
+"""执行函数并处理可能的后续计算"""
 def execute_function(function_name: str, full_expr=None, args=None):
-    """执行函数并处理可能的后续计算"""
     if function_name not in grammar_content['functions']:
         raise ValueError(f"Function '{function_name}' not found in the provided YAML.")
     
@@ -157,9 +159,12 @@ def parse_function_args(args_str: str) -> list:
 
     return processed_args
 
-def compute_expression(expr: str):
-    """Calculate the expression, supporting nested function calls and replacement expressions."""
+"""执行right侧的运算部分(包括函数执行)."""
+import re
+import math
+from typing import Any, Union, List, Tuple
 
+def compute_expression(expr: str):
     # Replace replacement expressions
     def evaluate_replacement(match):
         replacement_expr = match.group(1)
@@ -177,37 +182,45 @@ def compute_expression(expr: str):
         func_name = match.group(1)
         args_str = match.group(2)
         
+        # Check for name conflicts with custom functions
+        if func_name in grammar_content['functions'] and hasattr(math, func_name):
+            raise ValueError(f"Function name '{func_name}' conflicts with Python math module")
+        
         # First evaluate any nested expressions in the arguments
-        if '+' in args_str or '-' in args_str or '*' in args_str or '/' in args_str:
-            args_str = str(compute_expression(args_str))
-            args = [args_str]
-        else:
-            args = parse_function_args(args_str)
-
-        # Handle math functions
-        if hasattr(math, func_name):
-            try:
-                # Evaluate all arguments first
-                evaluated_args = []
-                for arg in args:
-                    if isinstance(arg, str):
-                        evaluated_args.append(float(compute_expression(arg)))
-                    else:
-                        evaluated_args.append(float(arg))
-                result = getattr(math, func_name)(*evaluated_args)
-            except (TypeError, ValueError):
-                raise ValueError(f"Invalid arguments for math function '{func_name}'")
-        else:
-            try:
+        args = []
+        if args_str:
+            # Split args but preserve parentheses structure
+            curr_arg = ""
+            paren_count = 0
+            for char in args_str + ',':
+                if char == ',' and paren_count == 0:
+                    if curr_arg.strip():
+                        # Recursively evaluate each argument
+                        evaluated_arg = compute_expression(curr_arg.strip())
+                        args.append(evaluated_arg)
+                    curr_arg = ""
+                else:
+                    if char == '(':
+                        paren_count += 1
+                    elif char == ')':
+                        paren_count -= 1
+                    curr_arg += char
+        
+        try:
+            if hasattr(math, func_name):
+                # Convert all arguments to float for math functions
+                float_args = [float(arg) for arg in args]
+                result = getattr(math, func_name)(*float_args)
+            else:
                 result = execute_function(func_name, args=args)
-            except ValueError as e:
-                raise ValueError(f"Error executing function '{func_name}': {e}")
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Error in function '{func_name}': {str(e)}")
 
         # Replace function call with result
         start, end = match.span()
         expr = expr[:start] + str(result) + expr[end:]
 
-    # Handle symbol.attribute values and constants as before
+    # Handle symbol.attribute values and constants
     def evaluate_attribute(match):
         symbol, attribute = match.group(1), match.group(2)
         if symbol in symbol_attributes and attribute in symbol_attributes[symbol]:

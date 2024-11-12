@@ -25,10 +25,10 @@ syntax:
   - rule: T -> Table
     actions:
       - Table.dif := sin(T.dif) + 7
-      - Table.test := sin(test() + 6)
-      - Table.target := rand(symbol_table, Table.dif)
-      - Attribute.target := select(Table.target, Attribute.dif)
-      - generate(Table.target, Attribute.target, Table.dif)
+      - Table.test := pow(pow(sin(test() + 6), 2) + 8, 2)
+      - Table.target := select_table_from_symt(symbol_table, Table.dif)
+      - Attribute.target := select_attr_from_tab(Table.target, Attribute.dif)
+      - gener_tab(Table.target, Attribute.target, Table.dif)
 
 attributes:
   - name: GPA
@@ -173,14 +173,14 @@ custom_types:
                 }
 
 functions:
-  rand:
+  select_table_from_symt:
     params:
       - name: symbol_table
         type: symbol_table
       - name: Table.dif
         type: attribute
     implementation: |
-      def rand(symbol_table, Table.dif):
+      def select_table_from_symt(symbol_table, Table.dif):
           table_symbols = [symbol for symbol in symbol_table.symbols.values() if symbol['type'] == 'table']
           matching_dif_symbols = [symbol for symbol in table_symbols if symbol['dif'] == Table.dif]
 
@@ -195,7 +195,7 @@ functions:
 
           return result
 
-  select:
+  select_attr_from_tab:
     params:
       - name: Table.target
         type: attribute
@@ -203,7 +203,7 @@ functions:
         type: attribute
     implementation: |
     
-        def select(Table.target, Attribute.dif):
+        def select_attr_from_tab(Table.target, Attribute.dif):
 
             attribute_names = [attr.strip() for attr in symbol_table.get_symbol(Table.target)['value'].split(',')]
 
@@ -222,7 +222,7 @@ functions:
 
             return random.choice(closest_attributes)['name'] if closest_attributes else None
 
-  generate:
+  gener_tab:
     params:
       - name: Table.target
         type: attribute
@@ -231,7 +231,7 @@ functions:
       - name: Table.dif
         type: attribute
     implementation: |
-        def generate(Table.target, Attribute.target, Table.dif):
+        def gener_tab(Table.target, Attribute.target, Table.dif):
             table_data = []
 
             for _ in range(int(Table.dif)):
