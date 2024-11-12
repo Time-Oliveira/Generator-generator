@@ -38,13 +38,17 @@ syntax:
   - rule: T -> Table
     actions:
       - Table.dif := T.dif
-      - Table.ref := rand(Symbol_Table, T.dif, table)
-      - Table.array := Write_Array(Table.ref.value)
+      -
+      - Table.details := rand(Symbol_Table, T.dif)
+
   - rule: T -> Table Join T
     actions:
-      - T.dif := T.dif - Table.dif
-      - Table.ref := rand(Symbol_Table, T.dif, table)
-      - Table.array := Write_Array(Table.ref.value)
+      - Table.dif := T.dif / 2  # 计算 Table.dif
+      - context['T.dif'] := T.dif - Table.dif  # 使用上下文存储更新后的 T.dif
+      - T.dif := context['T.dif']  # 更新 T.dif
+      - Table.details := rand(Symbol_Table, T.dif)  # 使用更新后的 T.dif
+
+
   - rule: Z -> Z OR Y
     actions:
       - Z.dif := Z.dif / 2
@@ -143,30 +147,34 @@ tables:
     dif: 5
 
 constants:
-  - generator_difficult: 10
-
+  - generator_difficult: 16
 functions:
   rand:
     params:
       - name: symbol_table
+        type: symbol_table
       - name: difficulty
+        type: dynamic
     implementation: |
-      def rand(symbol_table, difficulty):
+      def rand(symbol_table, difficulty, tolerance=3):
           import random
-          filtered_tables = [
-              (name, details) for name, details in symbol_table.items()
-              if details['difficulty'] == difficulty
+          
+          # 确保 symbol_table 和 difficulty 有效
+          if symbol_table is None:
+            raise ValueError("symbol_table is None")
+          if difficulty is None:
+            raise ValueError("difficulty is None")
+
+          # 过滤时使用 'dif' 字段
+          filtered_symbols = [
+            (name, details) for name, details in symbol_table.symbols.items()
+            if details and 'dif' in details and abs(details['dif'] - difficulty) <= tolerance
           ]
-          if not filtered_tables:
-              raise ValueError("No matching table found with the specified difficulty.")
-          selected_table = random.choice(filtered_tables)
-          return {"name": selected_table[0], "details": selected_table[1]}
-  Write_Array:
-    params:
-      - name: table_ref_value
-    implementation: |
-      def Write_Array(table_ref_value):
-          if array_counter == 0:
-              raise ValueError("No space created yet. Use CrateSpace to create space first.")
-          latest_array = f"array{array_counter}"
-          spaces[latest_array].append(table_ref_value)
+
+          print(f"Filtered symbols (difficulty: {difficulty}, tolerance: {tolerance}): {filtered_symbols}")
+
+          if not filtered_symbols:
+              raise ValueError(f"No matching symbol found with the specified difficulty: {difficulty}. Consider adjusting tolerance.")
+
+          selected_symbol = random.choice(filtered_symbols)
+          return {"name": selected_symbol[0], "details": selected_symbol[1]}
