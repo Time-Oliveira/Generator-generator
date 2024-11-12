@@ -1,0 +1,35 @@
+生成的随机语法例子: Select Attribute From (E) As TableName
+生成的随机语法例子: Select * From Table Where Select * AND NOT Attribute Operator Value OR Select * AND (Z)
+生成的随机语法例子: Select * From (E) As TableName
+生成的随机语法例子: Select * From (E) As TableName Where NOT NOT NOT NOT (Z)
+生成的随机语法例子: Select * From Table Where Select * AND (Z)
+生成的随机语法例子: Select * From (E) As TableName Where Select * AND Attribute, Attribute, Attribute IN (E) OR Select * AND NOT NOT NOT NOT NOT Attribute, Attribute Operator Value
+生成的随机语法例子: Select * From Table Join Table
+生成的随机语法例子: Select Attribute From (E) As TableName
+生成的随机语法例子: Select Attribute, Attribute From Table
+生成的随机语法例子: Select Attribute From (E) As TableName Where Attribute, Attribute Operator Attribute
+生成的随机语法例子: Select Attribute, Attribute, Attribute From (E) As TableName
+生成的随机语法例子: Select * From (E) As TableName
+生成的随机语法例子: Select * From (E) As TableName Where Select * AND (Z) OR EXISTS (E)
+生成的随机语法例子: Select Attribute From Table Join Table Where Select * AND NOT NOT (Z)
+生成的随机语法例子: Select * From (E) As TableName Where Select Attribute, Attribute AND (Z) OR Select * AND (Z) OR Select * AND (Z) OR Select Attribute, Attribute, Attribute AND NOT NOT Attribute, Attribute Operator Value
+生成的随机语法例子: Select Attribute, Attribute From (E) As TableName Where (Z)
+生成的随机语法例子: Select * From (E) As TableName
+生成的随机语法例子: Select * From Table
+生成的随机语法例子: Select Attribute, Attribute, Attribute From Table Where Select * AND NOT NOT NOT NOT Attribute Operator Attribute
+生成的随机语法例子: Select Attribute, Attribute From (E) As TableName Where NOT NOT (Z) OR NOT NOT NOT (Z) OR (Z) OR NOT NOT (Z) OR Attribute Operator Attribute OR Select Attribute AND (Z)
+生成的随机语法例子: Select * From (E) As TableName Where Select Attribute AND NOT (Z) OR Attribute Operator Attribute OR NOT Attribute, Attribute, Attribute, Attribute Operator Value OR (Z) OR NOT (Z) OR Select * AND Attribute Operator Value OR (Z) OR Select * AND NOT Attribute, Attribute, Attribute Operator Attribute
+生成的随机语法例子: Select Attribute, Attribute, Attribute From Table Join Table Join Table Where Select Attribute, Attribute AND NOT NOT (Z) OR Attribute IN (E)
+生成的随机语法例子: Select Attribute, Attribute, Attribute, Attribute From (E) As TableName Where Attribute IN (E) OR Select Attribute AND NOT NOT NOT NOT NOT (Z) OR (Z) OR Attribute IN (E) OR Select Attribute, Attribute AND NOT (Z) OR Select Attribute, Attribute AND (Z) OR Select Attribute AND NOT (Z) OR Attribute, Attribute, Attribute IN (E)
+生成的随机语法例子: Select * From (E) As TableName Where Attribute, Attribute Operator Value OR (Z) OR Select Attribute AND NOT Attribute Operator Attribute OR Select * AND Attribute, Attribute, Attribute, Attribute IN (E)
+生成的随机语法例子: Select * From Table
+生成的随机语法例子: Select * From Table
+生成的随机语法例子: Select Attribute, Attribute From (E) As TableName
+生成的随机语法例子: Select * From Table Where NOT NOT Attribute, Attribute, Attribute Operator Attribute OR EXISTS (E)
+生成的随机语法例子: Select Attribute, Attribute, Attribute, Attribute From (E) As TableName
+生成的随机语法例子: Select * From (E) As TableName
+生成的随机语法例子: Select Attribute, Attribute, Attribute From (E) As TableName Where EXISTS (E)
+生成的随机语法例子: Select Attribute From Table Join Table Join Table Where Select * AND NOT NOT (Z) OR NOT (Z)
+生成的随机语法例子: Select Attribute From Table Join Table Join Table Join Table Where Select * AND NOT NOT (Z) OR Select Attribute AND NOT (Z) OR Select * AND (Z)
+生成的随机语法例子: Select Attribute From Table Join Table
+生成的随机语法例子: Select Attribute From (E) As TableName

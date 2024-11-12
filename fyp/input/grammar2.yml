@@ -1,0 +1,173 @@
+syntax:
+  - rule: L -> E
+    actions:
+      - L.dif := generator_difficult
+      - E.dif := L.dif
+  - rule: E -> S F
+    actions:
+      - S.dif := E.dif / 2
+      - F.dif := E.dif / 2
+  - rule: E -> S F W
+    actions:
+      - S.dif := E.dif / 3
+      - F.dif := E.dif / 3
+      - W.dif := E.dif / 3
+  - rule: S -> Select A
+    actions:
+      - A.dif := S.dif
+  - rule: S -> Select *
+  - rule: W -> Where Z
+    actions:
+      - Z.dif := W.dif
+  - rule: F -> From T
+    actions:
+      - T.dif := F.dif
+  - rule: F -> From ( E ) As TableName
+    actions:
+      - E.dif := F.dif
+  - rule: A -> Attribute
+    actions:
+      - Attribute.dif := A.dif
+  - rule: A -> Attribute, A
+    actions:
+       - Attribute.dif := A.dif / 2
+       - A.dif := A.dif - Attribute.dif
+  - rule: O -> Operator
+    actions:
+      - Operator.dif := O.dif
+  - rule: T -> Table
+    actions:
+      - Table.dif := T.dif
+      # - Table.ref := rand(Symbol_Table, T.dif, table)
+      # - Table.array := Write_Array(Table.ref.value)
+  - rule: T -> Table Join T
+    actions:
+      - T.dif := T.dif - Table.dif
+      # - Table.ref := rand(Symbol_Table, T.dif, table)
+      # - Table.array := Write_Array(Table.ref.value)
+  - rule: Z -> Z OR Y
+    actions:
+      - Z.dif := Z.dif / 2
+      - Y.dif := Z.dif / 2
+  - rule: Z -> Y
+    actions:
+      - Y.dif := Z.dif
+  - rule: Y -> S AND C
+    actions:
+      - C.dif := Y.dif / 2
+      - Y.dif := Y.dif / 2
+  - rule: Y -> C
+    actions:
+      - C.dif := Y.dif
+  - rule: C -> ( Z )
+    actions:
+      - Z.dif := Y.dif
+  - rule: C -> NOT C
+    actions:
+      - C.dif := C.dif
+  - rule: C -> P
+    actions:
+      - P.dif := C.dif
+  - rule: P -> A O Value
+    actions:
+      - A.dif := P.dif / 3
+      - O.dif := P.dif / 3
+      - Value.dif := P.dif / 3
+  - rule: P -> A O Attribute
+    actions:
+      - A.dif := P.dif / 3
+      - O.dif := P.dif / 3
+      - Attribute.dif := P.dif / 3
+  - rule: P -> A IN ( E )
+    actions:
+      - A.dif := P.dif / 2
+      - E.dif := P.dif / 2
+  - rule: P -> EXISTS ( E )
+    actions:
+      - E.dif := P.dif
+
+# 定义属性部分
+attributes:
+  - name: GPA
+    type: LimitedFloat
+    params: [1, 1.0, 4.0]
+    dif: 2
+
+  - name: Major
+    type: CustomString
+    params: [20]
+    dif: 2
+
+  - name: Location
+    type: CustomString
+    params: [20]
+    dif: 2
+
+  - name: ID
+    type: CustomInt
+    params: [1000, 9999]
+    dif: 2
+
+  - name: Age
+    type: CustomInt
+    params: [18, 25]
+    dif: 2
+
+  - name: Name
+    type: CustomString
+    params: [10]
+    dif: 2
+
+  - name: Unit
+    type: UnitFloat
+    params: [1.0, 2.0, 3.0, 4.0]
+    dif: 2
+
+  - name: Classroom
+    type: CustomString
+    params: [5]
+    dif: 2
+
+# 定义表格部分
+tables:
+  - name: Course
+    attributes: [ID, Name, Unit, Classroom]
+    dif: 8
+
+  - name: Student
+    attributes: [ID, GPA, Age]
+    dif: 7
+
+  - name: School
+    attributes: [Major, Location]
+    dif: 5
+
+constants:
+  - generator_difficult: 10
+
+functions:
+  rand:
+    params:
+      - name: symbol_table
+      - name: difficulty
+    implementation: |
+      def rand(symbol_table, difficulty):
+          import random
+          filtered_tables = [
+              (name, details) for name, details in symbol_table.items()
+              if details['difficulty'] == difficulty
+          ]
+          if not filtered_tables:
+              raise ValueError("No matching table found with the specified difficulty.")
+          selected_table = random.choice(filtered_tables)
+          return {"name": selected_table[0], "details": selected_table[1]}
+
+  Write_Array:
+    params:
+      - name: table_ref_value
+    implementation: |
+      def Write_Array(table_ref_value):
+          if array_counter == 0:
+              raise ValueError("No space created yet. Use CrateSpace to create space first.")
+          latest_array = f"array{array_counter}"
+          spaces[latest_array].append(table_ref_value)

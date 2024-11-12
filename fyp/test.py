@@ -1,41 +1,43 @@
-# File path: main.py
-import yaml
-import os
+import math
 
-def load_yaml_and_execute_function(file_path: str, function_name: str):
-    # Load YAML file
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"The file {file_path} does not exist.")
+# 假设的 symbol_attributes 数据结构
+symbol_attributes = {
+    'F': {'dif': 10},
+    'S': {'dif': 5}
+}
+
+def compute_expression(expr, symbol_attributes):
+    # 自定义一个函数来支持所有操作符和函数
+    # 替换表达式中的symbol.attribute为其对应的值
+    def evaluate_attribute(match):
+        symbol, attribute = match.group(1), match.group(2)
+        if symbol in symbol_attributes and attribute in symbol_attributes[symbol]:
+            return str(symbol_attributes[symbol][attribute])
+        return match.group(0)
+
+    # 导入所有必要的库
+    import re
+    from sympy import symbols, sympify
+
+    # 替换表达式中的symbol.attribute结构
+    expr = re.sub(r'(\w+)\.(\w+)', evaluate_attribute, expr)
+
+    # 对于包含数学函数（如sin, cos, sqrt等）的表达式，可以用sympy解析
+    expr = sympify(expr)  # sympy可以处理各种操作符、函数以及数学表达式
     
-    with open(file_path, 'r', encoding = 'utf-8') as file:
-        data = yaml.safe_load(file)
-    
-    # Check if the specified function exists
-    if function_name not in data['functions']:
-        raise ValueError(f"Function '{function_name}' not found in the provided YAML.")
-    
-    function_data = data['functions'][function_name]
-    params = function_data.get('params', [])
-    implementation_code = function_data.get('implementation', '')
+    # 计算表达式的值
+    result = expr.evalf()
+    return result
 
-    # Create function dynamically
-    exec(implementation_code, globals())
+# 示例
+expr1 = "sin(F.dif)"
+expr2 = "F.dif / S.dif"
+expr3 = "F.dif * 3"
+expr4 = "sin(F.dif) + cos(S.dif)"
+expr5 = "1 + F.dif / S.dif + 1 + (F.dif + S.dif) / S.dif"
 
-    # Prepare parameter names
-    param_names = [param['name'] for param in params]
-
-    # Generate sample values for demonstration (you can replace these with actual values as needed)
-    sample_values = {name: None for name in param_names}
-
-    # Dynamically call the function with sample values (replace with real data as needed)
-    if function_name in globals():
-        func = globals()[function_name]
-        result = func(**sample_values)  # Modify this line if sample_values do not match expected arguments
-        return result
-    else:
-        raise ValueError(f"Function '{function_name}' could not be created.")
-
-# Usage example
-if __name__ == "__main__":
-    result = load_yaml_and_execute_function('input/grammar.yml', 'select')
-    print(result)
+print(compute_expression(expr1, symbol_attributes))  # 5.0
+print(compute_expression(expr2, symbol_attributes))  # 2.0
+print(compute_expression(expr3, symbol_attributes))  # 30.0
+print(compute_expression(expr4, symbol_attributes))  # sin(10) + cos(5)
+print(compute_expression(expr5, symbol_attributes))

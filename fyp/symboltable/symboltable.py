@@ -30,26 +30,29 @@ def load_attributes_into_symboltable(attributes):
         name = attribute['name']
         attr_type = attribute['type']
         params = attribute['params']
+        dif = attribute['dif']
 
         # 将参数格式化为字符串，并保持类型信息
         # 保证params中的每个元素都转换为适当的类型，避免参数丢失
         params_str = ', '.join([repr(param) for param in params])  # 使用repr保留类型信息
         value = f"{attr_type}({params_str})"
 
+
         # 将symbol添加到符号表
-        symbol_table.add_symbol(name, value, "attribute", float(random.randint(1, 4)))
+        symbol_table.add_symbol(name, value, "attribute", dif)
 
 # 将表格加载到符号表中，表格中的属性通过符号表查询
 def load_tables_into_symboltable(tables):
     for table in tables:
         table_name = table['name']
         attributes = table['attributes']
+        dif = table['dif']
 
         # 从符号表中查询表的每个属性的值，并组合成表格的value
         table_value = ', '.join([symbol_table.get_symbol(attr)['name'] for attr in attributes])
 
         # 将表格作为符号添加到符号表
-        symbol_table.add_symbol(table_name, table_value, "table", float(random.randint(1, 5)))
+        symbol_table.add_symbol(table_name, table_value, "table", dif)
 
 # Initialize SymbolTable
 symbol_table = SymbolTable()

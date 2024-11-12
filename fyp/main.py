@@ -10,57 +10,7 @@ from symboltable import derivedtable
 from symboltable.symboltable import *
 from symboltable.derivedtable import *
 
-def parse_grammar_yml(file_name):
-    """加载并解析 grammar.yml 文件"""
-    with open(file_name, 'r', encoding="utf-8") as file:
-        data = yaml.safe_load(file)
-
-    # 创建一个新的本地命名空间
-    namespace = {}
-    
-    # 处理导入部分
-    imports = data.get('imports', [])
-    namespace = dynamic_import(imports)
-    
-    custom_types = data.get('custom_types', [])
-    
-    # 在包含已导入模块的命名空间中执行自定义代码
-    for custom_type in custom_types:
-        code = custom_type.get('code', '')
-        exec(code, namespace)  # 执行代码在namespace中
-
-        # 将定义的类添加到全局命名空间
-        globals().update(namespace)  # 确保类被加载到全局命名空间
-    
-    return data
-
-# 分析syntax中的终结符和非终结符,通过left_symbols和right_symbols
-def analyze_syntax(syntax_rules):
-    left_symbols = set()
-    right_symbols = set()
-    rule_map = {}
-
-    for rule in syntax_rules:
-        left_side, right_side = rule['rule'].split("->")
-        left_side = left_side.strip()
-        right_side = right_side.strip().split()
-
-        left_symbols.add(left_side)
-        right_symbols.update(right_side)
-
-        # 添加规则和对应的动作到映射表
-        rule_entry = {
-            "rules": right_side,
-            "actions": rule.get("actions", [])  # 处理可能没有 actions 的情况
-        }
-        rule_map.setdefault(left_side, []).append(rule_entry)
-
-    terminals = right_symbols - left_symbols  # 终结符是右侧符号减去左侧符号
-    nonterminals = left_symbols
-    return nonterminals, terminals, rule_map, left_symbols, right_symbols
-
-
-def generate_example_dfs(start_symbol, rule_map, nonterminals, terminals):
+def generate_example_dfs(start_symbol, rule_map, nonterminals):
     stack = [start_symbol]  # 栈用于处理非终结符
 
     while stack:
@@ -76,7 +26,7 @@ def generate_example_dfs(start_symbol, rule_map, nonterminals, terminals):
                 # 处理语义动作部分
                 actions = chosen_rule.get('actions', [])
                 for action in actions:
-                    execute_action(action)       
+                    execute_action(action)
         else:
             # 如果是终结符，直接添加到结果
             generated_example.append(current_symbol)
@@ -90,9 +40,8 @@ def generate_example_dfs(start_symbol, rule_map, nonterminals, terminals):
 
     return ' '.join(generated_example)
 
-
-def execute_function(function_name: str):
-    # Check if the specified function exists
+def execute_function(function_name: str, full_expr=None, args=None):
+    """执行函数并处理可能的后续计算"""
     if function_name not in grammar_content['functions']:
         raise ValueError(f"Function '{function_name}' not found in the provided YAML.")
     
@@ -100,135 +49,229 @@ def execute_function(function_name: str):
     params = function_data.get('params', [])
     implementation_code = function_data.get('implementation', '')
 
-    # Prepare a mapping to replace '.' with a valid character
-    converted_params = []
-    param_replacements = {}
+    # 处理参数
+    param_values = {}
+    if args:
+        for i, (param, arg) in enumerate(zip(params, args)):
+            param_name = param['name']
+            param_type = param.get('type', None)
+            converted_name = param_name.replace('.', '_DOT_')
 
-    for param in params:
-        original_name = param['name']
-        converted_name = original_name.replace('.', '_DOT_')
-        param_replacements[original_name] = converted_name
-        converted_params.append({'name': converted_name, 'type': param.get('type', None)})
+            # 根据参数类型处理参数值
+            if param_type == "symbol_table":
+                param_values[converted_name] = symbol_table
+            elif param_type == "attribute":
+                if isinstance(arg, (int, float)):
+                    param_values[converted_name] = arg
+                elif '.' in arg:
+                    symbol, attribute = arg.split('.')
+                    param_values[converted_name] = symbol_attributes.get(symbol, {}).get(attribute, None)
+                else:
+                    # 如果参数是另一个函数调用的结果
+                    if isinstance(arg, str) and '(' in arg and ')' in arg:
+                        func_name = arg[:arg.index('(')]
+                        if func_name in grammar_content["functions"]:
+                            inner_args = parse_function_args(arg)
+                            param_values[converted_name] = execute_function(func_name, args=inner_args)
+                    else:
+                        param_values[converted_name] = arg
+            else:
+                param_values[converted_name] = arg
+    else:
+        # 无参数函数的处理
+        for param in params:
+            param_name = param['name']
+            param_type = param.get('type', None)
+            converted_name = param_name.replace('.', '_DOT_')
 
-    # Replace parameter names in the implementation code
-    for original_name, converted_name in param_replacements.items():
+            if param_type == "attribute":
+                symbol, attribute = param_name.split(".")
+                param_values[converted_name] = symbol_attributes.get(symbol, {}).get(attribute, None)
+            elif param_type == "symbol_table":
+                param_values[converted_name] = symbol_table
+            elif param_type == "constant":
+                param_values[converted_name] = derived_table.get_value(param_name)
+            else:
+                param_values[converted_name] = None
+
+    # Replace parameter names in implementation code
+    for original_name, converted_name in [(p['name'], p['name'].replace('.', '_DOT_')) for p in params]:
         implementation_code = implementation_code.replace(original_name, converted_name)
 
-    # Create function dynamically using exec with modified parameter names
+    # Create function dynamically using exec
     exec(implementation_code, globals())
 
-    # Prepare parameter values with modified parameter names
-    param_values = {}
-    for param in converted_params:
-        param_name = param['name']
-        param_type = param.get('type', None)
-
-        # Handle 'attribute' type
-        if param_type == "attribute":
-            symbol, attribute = param_name.replace('_DOT_', '.').split(".")
-            param_values[param_name] = symbol_attributes.get(symbol, {}).get(attribute, None)
-        
-        # Handle 'symbol_table' type - use global symbol_table directly
-        elif param_type == "symbol_table":
-            param_values[param_name] = symbol_table  # Use the global symbol_table
-        
-        else:
-            param_values[param_name] = None
-
-    # Dynamically call the function with prepared values
+    # Execute function
     func = globals().get(function_name)
     if func:
-        # Convert param_values keys back to original names
-        converted_param_values = {
-            param_replacements.get(key, key): value for key, value in param_values.items()
-        }
-        result = func(**converted_param_values)  # Call the function with the prepared parameter values
+        try:
+            result = func(**param_values)
+        except TypeError as e:
+            # 捕获类型错误,提示返回值不能参与数学运算
+            raise ValueError(f"Function '{function_name}' returned a non-numeric value: {e}")
+        except ValueError as e:
+            # 捕获自定义的ValueError,比如rand()函数返回None
+            raise ValueError(f"Error executing function '{function_name}': {e}")
+        
+        # 处理后续计算
+        if full_expr:
+            remaining_expr = full_expr.replace(f"{function_name}()", str(result)).strip()
+            if remaining_expr != str(result):
+                return compute_expression(remaining_expr)
         return result
     else:
         raise ValueError(f"Function '{function_name}' could not be created.")
-    
 
-def execute_action(action):
-    """根据 grammar.yml 动作执行相应的操作"""
-    if ":=" in action:
-        # 处理带 := 的动作 (赋值)
-        left, right = map(str.strip, action.split(":="))
+def parse_function_args(args_str: str) -> list:
+    """Parse function call arguments."""
+    args = []
+    current_arg = ''
+    paren_count = 0
 
-        func_name = next((name for name in grammar_content["functions"].keys() if name in right), None)
-
-        if func_name:
-            # 如果右侧是一个函数，调用执行函数并将结果赋值给左侧
-            result = execute_function(func_name)
+    for char in args_str:
+        if char == ',' and paren_count == 0:
+            args.append(current_arg.strip())
+            current_arg = ''
         else:
-            # 处理常量赋值或符号间属性赋值运算
-            result = compute_expression(right)
+            if char == '(':
+                paren_count += 1
+            elif char == ')':
+                paren_count -= 1
+            current_arg += char
 
-        # 更新符号表
-        symbol_left, attribute_left = left.split(".")
-        symbol_attributes.setdefault(symbol_left, {})[attribute_left] = result
+    if current_arg:
+        args.append(current_arg.strip())
 
-    else:
-        # 处理没有 := 的动作，调用函数
-        func_name = next((name for name in grammar_content["functions"].keys() if name in action), None)
-        if func_name:
-            execute_function(func_name)
+    processed_args = []
+    for arg in args:
+        if arg == 'symbol_table':
+            processed_args.append(symbol_table)
+        elif '.' in arg and not any(c in arg for c in '()[]{}'):
+            symbol, attribute = arg.split('.')
+            if symbol in symbol_attributes and attribute in symbol_attributes[symbol]:
+                processed_args.append(symbol_attributes[symbol][attribute])
+        elif arg.replace('.', '').isdigit():
+            processed_args.append(float(arg))
+        else:
+            processed_args.append(arg)
 
-# 自定义一个函数来支持所有操作符和函数
-def compute_expression(expr):    
-    # 替换表达式中的symbol.attribute为其对应的值
+    return processed_args
+
+def compute_expression(expr: str):
+    """Calculate the expression, supporting nested function calls and replacement expressions."""
+
+    # Replace replacement expressions
+    def evaluate_replacement(match):
+        replacement_expr = match.group(1)
+        return str(compute_expression(replacement_expr))
+
+    expr = re.sub(r'\{(.*?)\}', evaluate_replacement, expr)
+
+    # Handle nested function calls from inside out
+    while True:
+        # Find innermost function call
+        match = re.search(r'(\w+)\((([^()]*|\([^()]*\))*)\)', expr)
+        if not match:
+            break
+            
+        func_name = match.group(1)
+        args_str = match.group(2)
+        
+        # First evaluate any nested expressions in the arguments
+        if '+' in args_str or '-' in args_str or '*' in args_str or '/' in args_str:
+            args_str = str(compute_expression(args_str))
+            args = [args_str]
+        else:
+            args = parse_function_args(args_str)
+
+        # Handle math functions
+        if hasattr(math, func_name):
+            try:
+                # Evaluate all arguments first
+                evaluated_args = []
+                for arg in args:
+                    if isinstance(arg, str):
+                        evaluated_args.append(float(compute_expression(arg)))
+                    else:
+                        evaluated_args.append(float(arg))
+                result = getattr(math, func_name)(*evaluated_args)
+            except (TypeError, ValueError):
+                raise ValueError(f"Invalid arguments for math function '{func_name}'")
+        else:
+            try:
+                result = execute_function(func_name, args=args)
+            except ValueError as e:
+                raise ValueError(f"Error executing function '{func_name}': {e}")
+
+        # Replace function call with result
+        start, end = match.span()
+        expr = expr[:start] + str(result) + expr[end:]
+
+    # Handle symbol.attribute values and constants as before
     def evaluate_attribute(match):
         symbol, attribute = match.group(1), match.group(2)
         if symbol in symbol_attributes and attribute in symbol_attributes[symbol]:
             return str(symbol_attributes[symbol][attribute])
         return match.group(0)
-    
-    # 替换常量值
+
+    expr = re.sub(r'(\w+)\.(\w+)', evaluate_attribute, expr)
+
     def evaluate_constant(match):
         constant = match.group(0)
         if derived_table.has_value(constant):
-            return str(derived_table.get_value(constant)['value'])
-        return constant  # 如果常量不存在于 derived_table 中，保留原值
+            return str(derived_table.get_value(constant))
+        return constant
 
-    # 替换常量
     expr = re.sub(r'\b\w+\b', evaluate_constant, expr)
 
-    # 替换表达式中的symbol.attribute结构
-    expr = re.sub(r'(\w+)\.(\w+)', evaluate_attribute, expr)
+    try:
+        result = float(sympify(expr).evalf())
+        return result
+    except:
+        return expr
 
-    # 对于包含数学函数（如sin, cos, sqrt等）的表达式，可以用sympy解析
-    expr = sympify(expr)  # sympy可以处理各种操作符、函数以及数学表达式
-    
-    # 计算表达式的值
-    result = expr.evalf()
-    return result
-
-# 自动判断起点符号：选择出现在左侧但从未出现在右侧的符号。
-def get_start_symbol(left_symbols, right_symbols):
-
-    # 起点符号应是没有在右侧出现的左侧符号
-    start_candidates = left_symbols - right_symbols
-
-    # 返回任意一个候选符号
-    return next(iter(start_candidates))  
-
-    # if start_candidates:
-    #     return next(iter(start_candidates))  # 返回任意一个候选符号
-    # else:
-    #     raise ValueError("无法找到有效的起点符号，所有左侧符号都出现在右侧。")
+"""执行actions语句"""
+def execute_action(action: str):
+    # actions语句分为赋值语句和不赋值语句（函数执行语句）
+    if ":=" in action:
+        left, right = map(str.strip, action.split(":="))
+        
+        # 计算右侧表达式的值
+        result = compute_expression(right)
+        
+        # 更新符号属性表
+        symbol, attribute = left.split(".")
+        symbol_attributes.setdefault(symbol, {})[attribute] = result
+    else:
+        # 处理不包含赋值的动作
+        compute_expression(action)
 
 if __name__ == "__main__":
+    # 生成的最终语句
     generated_example = []
+
+    # 用于保存symbol.attribute
     symbol_attributes = {}
-    # 解析grammar.yml
-    grammar_file_address = "input/grammar.yml"
+
+    # 加载语法文件
+    grammar_file_address = "input/grammar1.yml"
     grammar_content = parse_grammar_yml(grammar_file_address)
+    
+    # 获取命名空间，确保所有类都可用
+    namespace = get_namespace()
+    
+    # 将命名空间中的类添加到全局命名空间
+    globals().update(namespace)
+    
     # 加载constants到派生表
-    load_constants_into_derivedtable(grammar_content['constants'])
+    if 'constants' in grammar_content and grammar_content['constants']:
+        load_constants_into_derivedtable(grammar_content['constants'])
 
-    # 加载attributes到符号表
-    load_attributes_into_symboltable(grammar_content['attributes'])
+    # 加载attributes到symbol table
+    if 'attributes' in grammar_content and grammar_content['attributes']:
+        load_attributes_into_symboltable(grammar_content['attributes'])
 
-    # 加载tables到符号表
+    # 加载tables到symbol table
     if 'tables' in grammar_content and grammar_content['tables']: 
         load_tables_into_symboltable(grammar_content['tables'])
 
@@ -240,12 +283,13 @@ if __name__ == "__main__":
 
     # 自动智能判断起点符号
     start_symbol = get_start_symbol(left_symbols, right_symbols)
-
+    
     # 从起点符号开始生成派生例子
-    generate_example_dfs(start_symbol, rule_map, nonterminals, terminals)
+    generate_example_dfs(start_symbol, rule_map, nonterminals)
 
-    print("生成的随机语法例子:", ' '.join(generated_example))
+    print("result:", ' '.join(generated_example))
 
+    print(symbol_attributes)
     # print(show(generated_example, symbol_attributes['Table']['type'], symbol_attributes['Attribute']['type']))
     # print(symbol_table)
     # print(symbol_attributes)
