@@ -1,9 +1,7 @@
 imports:
-  - import numpy
-  - from itertools import combinations
-  - import random
+  - import numpy, random, names
+  - from itertools import *
   - import pandas as pd
-  - import names
   - from typing import Union, Tuple, Optional
   - import string
 
@@ -177,21 +175,21 @@ functions:
     params:
       - name: symbol_table
         type: symbol_table
-      - name: Table.dif
+      - name: Table_dif
         type: attribute
     implementation: |
-      def select_table_from_symt(symbol_table, Table.dif):
+      def select_table_from_symt(symbol_table, Table_dif):
           table_symbols = [symbol for symbol in symbol_table.symbols.values() if symbol['type'] == 'table']
-          matching_dif_symbols = [symbol for symbol in table_symbols if symbol['dif'] == Table.dif]
+          matching_dif_symbols = [symbol for symbol in table_symbols if symbol['dif'] == Table_dif]
 
           if matching_dif_symbols:
               return random.choice(matching_dif_symbols)['name']
 
-          closest_dif_symbols = sorted(table_symbols, key=lambda x: abs(x['dif'] - Table.dif))
+          closest_dif_symbols = sorted(table_symbols, key=lambda x: abs(x['dif'] - Table_dif))
           result = random.choice(closest_dif_symbols)['name'] if closest_dif_symbols else None
 
           if result is None:
-              raise ValueError(f"Unable to find a table with a difficulty level close to {Table.dif}")
+              raise ValueError(f"Unable to find a table with a difficulty level close to {Table_dif}")
 
           return result
 

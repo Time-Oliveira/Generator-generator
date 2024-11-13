@@ -2,6 +2,7 @@
 import re
 import math
 import random
+from typing import Any, Union, List, Tuple
 from setup.readin import *
 from collections import deque
 from sympy import symbols, sympify
@@ -57,65 +58,81 @@ def execute_function(function_name: str, full_expr=None, args=None):
         for i, (param, arg) in enumerate(zip(params, args)):
             param_name = param['name']
             param_type = param.get('type', None)
-            converted_name = param_name.replace('.', '_DOT_')
+            # 同时保存点号和下划线版本的参数名
+            dot_name = param_name
+            underscore_name = param_name.replace('.', '_')
 
             # 根据参数类型处理参数值
             if param_type == "symbol_table":
-                param_values[converted_name] = symbol_table
+                param_values[dot_name] = param_values[underscore_name] = symbol_table
             elif param_type == "attribute":
                 if isinstance(arg, (int, float)):
-                    param_values[converted_name] = arg
+                    param_values[dot_name] = param_values[underscore_name] = arg
                 elif '.' in arg:
                     symbol, attribute = arg.split('.')
-                    param_values[converted_name] = symbol_attributes.get(symbol, {}).get(attribute, None)
+                    value = symbol_attributes.get(symbol, {}).get(attribute, None)
+                    param_values[dot_name] = param_values[underscore_name] = value
+                elif '_' in arg:
+                    symbol, attribute = arg.split('_')
+                    value = symbol_attributes.get(symbol, {}).get(attribute, None)
+                    param_values[dot_name] = param_values[underscore_name] = value
                 else:
-                    # 如果参数是另一个函数调用的结果
                     if isinstance(arg, str) and '(' in arg and ')' in arg:
                         func_name = arg[:arg.index('(')]
                         if func_name in grammar_content["functions"]:
                             inner_args = parse_function_args(arg)
-                            param_values[converted_name] = execute_function(func_name, args=inner_args)
+                            value = execute_function(func_name, args=inner_args)
+                            param_values[dot_name] = param_values[underscore_name] = value
                     else:
-                        param_values[converted_name] = arg
+                        param_values[dot_name] = param_values[underscore_name] = arg
             else:
-                param_values[converted_name] = arg
+                param_values[dot_name] = param_values[underscore_name] = arg
     else:
         # 无参数函数的处理
         for param in params:
             param_name = param['name']
             param_type = param.get('type', None)
-            converted_name = param_name.replace('.', '_DOT_')
+            dot_name = param_name
+            underscore_name = param_name.replace('.', '_')
 
             if param_type == "attribute":
-                symbol, attribute = param_name.split(".")
-                param_values[converted_name] = symbol_attributes.get(symbol, {}).get(attribute, None)
+                if '.' in param_name:
+                    symbol, attribute = param_name.split(".")
+                else:
+                    symbol, attribute = param_name.split("_")
+                value = symbol_attributes.get(symbol, {}).get(attribute, None)
+                param_values[dot_name] = param_values[underscore_name] = value
             elif param_type == "symbol_table":
-                param_values[converted_name] = symbol_table
+                param_values[dot_name] = param_values[underscore_name] = symbol_table
             elif param_type == "constant":
-                param_values[converted_name] = derived_table.get_value(param_name)
+                value = derived_table.get_value(param_name)
+                param_values[dot_name] = param_values[underscore_name] = value
             else:
-                param_values[converted_name] = None
+                param_values[dot_name] = param_values[underscore_name] = None
 
-    # Replace parameter names in implementation code
-    for original_name, converted_name in [(p['name'], p['name'].replace('.', '_DOT_')) for p in params]:
-        implementation_code = implementation_code.replace(original_name, converted_name)
+    # 处理实现代码中的变量引用
+    # 将点号版本替换为实际的下划线版本
+    modified_code = implementation_code
+    for param in params:
+        param_name = param['name']
+        dot_version = param_name
+        underscore_version = param_name.replace('.', '_')
+        modified_code = modified_code.replace(dot_version, underscore_version)
 
-    # Create function dynamically using exec
-    exec(implementation_code, globals())
+    # 创建函数并执行
+    exec(modified_code, globals())
 
-    # Execute function
     func = globals().get(function_name)
     if func:
         try:
-            result = func(**param_values)
+            # 使用下划线版本的参数名调用函数
+            filtered_params = {k: v for k, v in param_values.items() if '_' in k}
+            result = func(**filtered_params)
         except TypeError as e:
-            # 捕获类型错误,提示返回值不能参与数学运算
             raise ValueError(f"Function '{function_name}' returned a non-numeric value: {e}")
         except ValueError as e:
-            # 捕获自定义的ValueError,比如rand()函数返回None
             raise ValueError(f"Error executing function '{function_name}': {e}")
         
-        # 处理后续计算
         if full_expr:
             remaining_expr = full_expr.replace(f"{function_name}()", str(result)).strip()
             if remaining_expr != str(result):
@@ -123,7 +140,7 @@ def execute_function(function_name: str, full_expr=None, args=None):
         return result
     else:
         raise ValueError(f"Function '{function_name}' could not be created.")
-
+    
 def parse_function_args(args_str: str) -> list:
     """Parse function call arguments."""
     args = []
@@ -159,10 +176,6 @@ def parse_function_args(args_str: str) -> list:
 
     return processed_args
 
-"""执行right侧的运算部分(包括函数执行)."""
-import re
-import math
-from typing import Any, Union, List, Tuple
 
 def compute_expression(expr: str):
     # Replace replacement expressions

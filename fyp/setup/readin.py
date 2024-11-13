@@ -74,39 +74,57 @@ class GrammarLoader:
 
     """根据 grammar.yml 中的 imports 部分动态导入库"""
     def dynamic_import(self, imports: list) -> dict:
-        
         namespace = self.namespace.copy()
         
         for item in imports:
             try:
                 if isinstance(item, str):
                     if item.startswith('import '):
-                        # 处理 'import xxx' 和 'import xxx as yyy'
-                        parts = item[len('import '):].strip().split(' as ')
-                        module_name = parts[0].strip()
-                        alias = parts[1].strip() if len(parts) > 1 else module_name
+                        # Remove 'import ' prefix
+                        import_statement = item[len('import '):].strip()
                         
-                        module = importlib.import_module(module_name)
-                        namespace[alias] = module
-                        globals()[alias] = module
-                        
-                    elif item.startswith('from '):
-                        # 处理 'from xxx import yyy'
-                        _, rest = item.split('from ', 1)
-                        module_path, imports = rest.strip().split(' import ')
-                        
-                        module = importlib.import_module(module_path)
-                        for name in imports.split(', '):
-                            name = name.strip()
-                            if ' as ' in name:
-                                name, alias = name.split(' as ')
-                            else:
-                                alias = name
-                                
-                            obj = getattr(module, name)
-                            namespace[alias] = obj
-                            globals()[alias] = obj
+                        # Handle multiple imports (e.g., 'import xxx, yyy, zzz')
+                        for module_spec in import_statement.split(','):
+                            module_spec = module_spec.strip()
                             
+                            # Handle 'import xxx as yyy'
+                            parts = module_spec.split(' as ')
+                            module_name = parts[0].strip()
+                            alias = parts[1].strip() if len(parts) > 1 else module_name
+                            
+                            module = importlib.import_module(module_name)
+                            namespace[alias] = module
+                            globals()[alias] = module
+                            
+                    elif item.startswith('from '):
+                        # Remove 'from ' prefix and split into module path and imports
+                        _, rest = item.split('from ', 1)
+                        module_path, imports_part = rest.strip().split(' import ')
+                        module = importlib.import_module(module_path)
+                        
+                        if imports_part.strip() == '*':
+                            # Handle 'from xxx import *'
+                            # Get all public attributes (not starting with '_')
+                            for name in dir(module):
+                                if not name.startswith('_'):
+                                    obj = getattr(module, name)
+                                    namespace[name] = obj
+                                    globals()[name] = obj
+                        else:
+                            # Handle regular imports and multiple imports
+                            for name in imports_part.split(','):
+                                name = name.strip()
+                                if ' as ' in name:
+                                    orig_name, alias = name.split(' as ')
+                                    orig_name = orig_name.strip()
+                                    alias = alias.strip()
+                                else:
+                                    orig_name = alias = name
+                                    
+                                obj = getattr(module, orig_name)
+                                namespace[alias] = obj
+                                globals()[alias] = obj
+                                
             except ImportError as e:
                 print(f"Error importing {item}: {e}")
             except Exception as e:
