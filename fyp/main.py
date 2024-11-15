@@ -7,10 +7,11 @@ from setup.readin import *
 from collections import deque
 from sympy import symbols, sympify
 from CustomClass import CustomClass
-from symboltable import derivedtable
+from ConstantTable import ConstantTable
 from symboltable.symboltable import *
-from symboltable.derivedtable import *
+from ConstantTable.ConstantTable import *
 
+'''用dfs来派生example'''
 def generate_example_dfs(start_symbol, rule_map, nonterminals):
     stack = [start_symbol]  # 栈用于处理非终结符
 
@@ -29,32 +30,40 @@ def generate_example_dfs(start_symbol, rule_map, nonterminals):
                 for action in actions:
                     execute_action(action)
         else:
-            # 如果是终结符，直接添加到结果
-            generated_example.append(current_symbol)
+            # 如果是terminal，直接添加到结果
+            result.append(current_symbol)
 
-    # 对生成的结果进行替换, 将symbol替换为symbol.target中的值(symbol_attributes[symbol]['target'])
-    for i, symbol in enumerate(generated_example):
+    # 对生成的结果进行替换, 将symbol替换为symbol.target中的值(semantics[symbol]['target'])
+    for index, symbol in enumerate(result):
         # 判断是否存在symbol.target
-        if symbol in symbol_attributes and 'target' in symbol_attributes[symbol]:
-            replacement = symbol_attributes[symbol]['target']
+        if symbol in semantics and 'target' in semantics[symbol]:
+            replacement = semantics[symbol]['target']
             # 判断是否存在symbol.target是否为空
             if replacement:
-                generated_example[i] = replacement
+                result[index] = replacement
 
-    return ' '.join(generated_example)
+    return ' '.join(result)
 
-"""执行函数并处理可能的后续计算"""
+"""执行函数并处理可能的后续计算
+    Args:
+        function_name (str): 要执行的函数名称。
+        full_expr (str, optional): 完整的表达式,用于处理函数调用后的剩余部分。
+        args (list, optional): 函数调用的参数列表。
+"""
 def execute_function(function_name: str, full_expr=None, args=None):
-    if function_name not in grammar_content['functions']:
+    # 检查函数是否存在于语法定义中
+    if function_name not in grammar['functions']:
         raise ValueError(f"Function '{function_name}' not found in the provided YAML.")
     
-    function_data = grammar_content['functions'][function_name]
+    # 获取函数的数据
+    function_data = grammar['functions'][function_name]
     params = function_data.get('params', [])
     implementation_code = function_data.get('implementation', '')
 
     # 处理参数
     param_values = {}
     if args:
+        # 遍历函数的参数和对应的实参
         for i, (param, arg) in enumerate(zip(params, args)):
             param_name = param['name']
             param_type = param.get('type', None)
@@ -66,26 +75,33 @@ def execute_function(function_name: str, full_expr=None, args=None):
             if param_type == "symbol_table":
                 param_values[dot_name] = param_values[underscore_name] = symbol_table
             elif param_type == "attribute":
+                # 处理属性类型的参数
                 if isinstance(arg, (int, float)):
+                    # 如果参数是数值类型,直接赋值
                     param_values[dot_name] = param_values[underscore_name] = arg
                 elif '.' in arg:
+                    # 如果参数是"symbol.attribute"形式,拆分并从semantics获取值
                     symbol, attribute = arg.split('.')
-                    value = symbol_attributes.get(symbol, {}).get(attribute, None)
+                    value = semantics.get(symbol, {}).get(attribute, None)
                     param_values[dot_name] = param_values[underscore_name] = value
                 elif '_' in arg:
+                    # 如果参数是"symbol_attribute"形式,拆分并从semantics获取值
                     symbol, attribute = arg.split('_')
-                    value = symbol_attributes.get(symbol, {}).get(attribute, None)
+                    value = semantics.get(symbol, {}).get(attribute, None)
                     param_values[dot_name] = param_values[underscore_name] = value
                 else:
+                    # 如果参数是函数调用,递归执行函数并获取结果
                     if isinstance(arg, str) and '(' in arg and ')' in arg:
                         func_name = arg[:arg.index('(')]
-                        if func_name in grammar_content["functions"]:
+                        if func_name in grammar["functions"]:
                             inner_args = parse_function_args(arg)
                             value = execute_function(func_name, args=inner_args)
                             param_values[dot_name] = param_values[underscore_name] = value
                     else:
+                        # 其他情况直接赋值
                         param_values[dot_name] = param_values[underscore_name] = arg
             else:
+                # 其他类型的参数直接赋值
                 param_values[dot_name] = param_values[underscore_name] = arg
     else:
         # 无参数函数的处理
@@ -96,18 +112,22 @@ def execute_function(function_name: str, full_expr=None, args=None):
             underscore_name = param_name.replace('.', '_')
 
             if param_type == "attribute":
+                # 处理属性类型的参数
                 if '.' in param_name:
                     symbol, attribute = param_name.split(".")
                 else:
                     symbol, attribute = param_name.split("_")
-                value = symbol_attributes.get(symbol, {}).get(attribute, None)
+                value = semantics.get(symbol, {}).get(attribute, None)
                 param_values[dot_name] = param_values[underscore_name] = value
             elif param_type == "symbol_table":
+                # 符号表类型的参数直接赋值
                 param_values[dot_name] = param_values[underscore_name] = symbol_table
             elif param_type == "constant":
-                value = derived_table.get_value(param_name)
+                # 常量类型的参数从ConstantTable获取值
+                value = ConstantTable.get_value(param_name)
                 param_values[dot_name] = param_values[underscore_name] = value
             else:
+                # 其他类型的参数赋值为None
                 param_values[dot_name] = param_values[underscore_name] = None
 
     # 处理实现代码中的变量引用
@@ -134,6 +154,7 @@ def execute_function(function_name: str, full_expr=None, args=None):
             raise ValueError(f"Error executing function '{function_name}': {e}")
         
         if full_expr:
+            # 处理函数调用后的剩余表达式
             remaining_expr = full_expr.replace(f"{function_name}()", str(result)).strip()
             if remaining_expr != str(result):
                 return compute_expression(remaining_expr)
@@ -142,7 +163,6 @@ def execute_function(function_name: str, full_expr=None, args=None):
         raise ValueError(f"Function '{function_name}' could not be created.")
     
 def parse_function_args(args_str: str) -> list:
-    """Parse function call arguments."""
     args = []
     current_arg = ''
     paren_count = 0
@@ -167,8 +187,8 @@ def parse_function_args(args_str: str) -> list:
             processed_args.append(symbol_table)
         elif '.' in arg and not any(c in arg for c in '()[]{}'):
             symbol, attribute = arg.split('.')
-            if symbol in symbol_attributes and attribute in symbol_attributes[symbol]:
-                processed_args.append(symbol_attributes[symbol][attribute])
+            if symbol in semantics and attribute in semantics[symbol]:
+                processed_args.append(semantics[symbol][attribute])
         elif arg.replace('.', '').isdigit():
             processed_args.append(float(arg))
         else:
@@ -176,18 +196,18 @@ def parse_function_args(args_str: str) -> list:
 
     return processed_args
 
-
+'''计算表达式的值'''
 def compute_expression(expr: str):
-    # Replace replacement expressions
+    # 替换替换表达式
     def evaluate_replacement(match):
         replacement_expr = match.group(1)
         return str(compute_expression(replacement_expr))
 
     expr = re.sub(r'\{(.*?)\}', evaluate_replacement, expr)
 
-    # Handle nested function calls from inside out
+    # 从内到外处理嵌套函数调用
     while True:
-        # Find innermost function call
+        # 查找最内层的函数调用
         match = re.search(r'(\w+)\((([^()]*|\([^()]*\))*)\)', expr)
         if not match:
             break
@@ -195,20 +215,20 @@ def compute_expression(expr: str):
         func_name = match.group(1)
         args_str = match.group(2)
         
-        # Check for name conflicts with custom functions
-        if func_name in grammar_content['functions'] and hasattr(math, func_name):
+        # 检查自定义函数名与Python math模块的名称冲突
+        if func_name in grammar['functions'] and hasattr(math, func_name):
             raise ValueError(f"Function name '{func_name}' conflicts with Python math module")
         
-        # First evaluate any nested expressions in the arguments
+        # 首先评估参数中的任何嵌套表达式
         args = []
         if args_str:
-            # Split args but preserve parentheses structure
+            # 分割参数并保留括号结构
             curr_arg = ""
             paren_count = 0
             for char in args_str + ',':
                 if char == ',' and paren_count == 0:
                     if curr_arg.strip():
-                        # Recursively evaluate each argument
+                        # 递归评估每个参数
                         evaluated_arg = compute_expression(curr_arg.strip())
                         args.append(evaluated_arg)
                     curr_arg = ""
@@ -221,39 +241,45 @@ def compute_expression(expr: str):
         
         try:
             if hasattr(math, func_name):
-                # Convert all arguments to float for math functions
+                # 如果是math模块中的函数,将所有参数转换为浮点型
                 float_args = [float(arg) for arg in args]
                 result = getattr(math, func_name)(*float_args)
             else:
+                # 否则递归执行函数
                 result = execute_function(func_name, args=args)
         except (TypeError, ValueError) as e:
             raise ValueError(f"Error in function '{func_name}': {str(e)}")
 
-        # Replace function call with result
+        # 用结果替换函数调用
         start, end = match.span()
         expr = expr[:start] + str(result) + expr[end:]
 
-    # Handle symbol.attribute values and constants
+    # 处理symbol.attribute
     def evaluate_attribute(match):
         symbol, attribute = match.group(1), match.group(2)
-        if symbol in symbol_attributes and attribute in symbol_attributes[symbol]:
-            return str(symbol_attributes[symbol][attribute])
+        if symbol in semantics and attribute in semantics[symbol]:
+            # 如果是"symbol.attribute"形式,从semantics获取值
+            return str(semantics[symbol][attribute])
         return match.group(0)
 
     expr = re.sub(r'(\w+)\.(\w+)', evaluate_attribute, expr)
 
+    # 处理constant
     def evaluate_constant(match):
         constant = match.group(0)
-        if derived_table.has_value(constant):
-            return str(derived_table.get_value(constant))
+        if ConstantTable.has_value(constant):
+            # 如果是常量,从ConstantTable获取值
+            return str(ConstantTable.get_value(constant))
         return constant
 
     expr = re.sub(r'\b\w+\b', evaluate_constant, expr)
 
     try:
+        # 尝试使用sympify计算表达式结果
         result = float(sympify(expr).evalf())
         return result
     except:
+        # 如果计算失败,返回表达式本身
         return expr
 
 """执行actions语句"""
@@ -265,23 +291,23 @@ def execute_action(action: str):
         # 计算右侧表达式的值
         result = compute_expression(right)
         
-        # 更新符号属性表
+        # 更新semantics
         symbol, attribute = left.split(".")
-        symbol_attributes.setdefault(symbol, {})[attribute] = result
+        semantics.setdefault(symbol, {})[attribute] = result
     else:
         # 处理不包含赋值的动作
         compute_expression(action)
 
 if __name__ == "__main__":
     # 生成的最终语句
-    generated_example = []
+    result = []
 
     # 用于保存symbol.attribute
-    symbol_attributes = {}
+    semantics = {}
 
     # 加载语法文件
     grammar_file_address = "input/grammar1.yml"
-    grammar_content = parse_grammar_yml(grammar_file_address)
+    grammar = parse_grammar_yml(grammar_file_address)
     
     # 获取命名空间，确保所有类都可用
     namespace = get_namespace()
@@ -290,19 +316,19 @@ if __name__ == "__main__":
     globals().update(namespace)
     
     # 加载constants到派生表
-    if 'constants' in grammar_content and grammar_content['constants']:
-        load_constants_into_derivedtable(grammar_content['constants'])
+    if 'constants' in grammar and grammar['constants']:
+        load_constants_into_derivedtable(grammar['constants'])
 
-    # 加载attributes到symbol table
-    if 'attributes' in grammar_content and grammar_content['attributes']:
-        load_attributes_into_symboltable(grammar_content['attributes'])
+    # 加载columns到symbol table
+    if 'columns' in grammar and grammar['columns']:
+        load_columns_into_symboltable(grammar['columns'])
 
     # 加载tables到symbol table
-    if 'tables' in grammar_content and grammar_content['tables']: 
-        load_tables_into_symboltable(grammar_content['tables'])
+    if 'tables' in grammar and grammar['tables']: 
+        load_tables_into_symboltable(grammar['tables'])
 
     # 获取syntax规则
-    syntax_rules = grammar_content['syntax']
+    syntax_rules = grammar['syntax']
 
     # 分析终结符、非终结符及其属性，并生成规则映射表
     nonterminals, terminals, rule_map, left_symbols, right_symbols = analyze_syntax(syntax_rules)
@@ -313,13 +339,22 @@ if __name__ == "__main__":
     # 从起点符号开始生成派生例子
     generate_example_dfs(start_symbol, rule_map, nonterminals)
 
-    print("result:", ' '.join(generated_example))
+    # 打印最终的example
+    print("result:", ' '.join(result))
 
-    print(symbol_attributes)
-    # print(show(generated_example, symbol_attributes['Table']['type'], symbol_attributes['Attribute']['type']))
+    # 以下为测试用的语句
+
+    # 打印symbol_table
     # print(symbol_table)
-    # print(symbol_attributes)
-    # print(symbol_attributes['Attribute']['target'])
-    # # print(symbol_attributes['Attribute']['dif'])
-    # print(symbol_attributes['Table']['value'])
-    # print(symbol_table.get_symbol(random.choice(symbol_table.get_symbol(symbol_attributes['Table']['target'])['value'].split(','))))
+
+    # 打印所有的xxx.xxx
+    # print(semantics)
+
+    # 打印所有的Table.value
+    # print(semantics['Table']['value'])
+
+    # print(semantics['Attribute']['dif'])
+
+    # print(semantics['Attribute']['target'])
+
+    # print(symbol_table.get_symbol(random.choice(symbol_table.get_symbol(semantics['Table']['target'])['value'].split(','))))

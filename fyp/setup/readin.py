@@ -72,7 +72,14 @@ class GrammarLoader:
         
         return data
 
-    """根据 grammar.yml 中的 imports 部分动态导入库"""
+    """根据 grammar.yml 中的 imports 部分动态导入库
+    现在支持的格式：                                        
+    import xxx
+    import xxx, xxx
+    from xxx import xxx
+    from xxx import *
+    from xxx import xxx, xxx, xxx
+    """                   
     def dynamic_import(self, imports: list) -> dict:
         namespace = self.namespace.copy()
         
@@ -80,7 +87,7 @@ class GrammarLoader:
             try:
                 if isinstance(item, str):
                     if item.startswith('import '):
-                        # Remove 'import ' prefix
+                        # 去掉'import'前缀
                         import_statement = item[len('import '):].strip()
                         
                         # Handle multiple imports (e.g., 'import xxx, yyy, zzz')
